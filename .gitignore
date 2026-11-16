@@ -1,0 +1,32 @@
+# Node.js
+node_modules/
+dist/
+coverage/
+
+# Environment files
+.env
+.env.*
+
+# Logs
+*.log
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Java / Spring Boot
+target/
+*.class
+
+# Maven
+.mvn/wrapper/maven-wrapper.jar
+
+# PostgreSQL
+postgres-data/
+
+# React Flow
+*.tmp
