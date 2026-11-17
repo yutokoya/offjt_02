@@ -68,6 +68,4 @@ jobs:
 
       - run: chmod +x mvnw
 
-      - run: ./mvnw test
-
       - run: ./mvnw verify
