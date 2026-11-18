@@ -4,14 +4,26 @@ import { createElement } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { createServer } from 'vite'
 
-test('the frontend can render its initial screen', async () => {
+test('the task list and registration form render as separate screens', async () => {
   const vite = await createServer({
     server: { middlewareMode: true, ws: false },
   })
   try {
     const { default: App } = await vite.ssrLoadModule('/src/App.tsx')
-    const markup = renderToStaticMarkup(createElement(App))
-    assert.match(markup, /<h1>タスク管理<\/h1>/)
+    const listMarkup = renderToStaticMarkup(createElement(App))
+    assert.match(listMarkup, /<h2 id="list-heading">タスク一覧<\/h2>/)
+    assert.match(listMarkup, /タスク登録/)
+    assert.doesNotMatch(listMarkup, /<form/)
+
+    const { TaskRegistrationPage } = await vite.ssrLoadModule(
+      '/src/features/tasks/TaskRegistrationPage.tsx',
+    )
+    const registrationMarkup = renderToStaticMarkup(
+      createElement(TaskRegistrationPage, { onBack: () => {} }),
+    )
+    assert.match(registrationMarkup, /<form/)
+    assert.match(registrationMarkup, /一覧に戻る/)
+    assert.doesNotMatch(registrationMarkup, /list-heading/)
   } finally {
     await vite.close()
   }
