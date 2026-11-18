@@ -69,9 +69,9 @@
 - `status`: `NOT_STARTED`、`IN_PROGRESS`、`COMPLETED`のいずれか。画面ではそれぞれ「未着手」「実行中」「完了」と表示する。
 - `assigneeName`: 自由入力。未設定は`null`で、画面では「未割当」と表示する。
 - `estimatedMinutes`、`actualTotalMinutes`: 0以上の整数分数。製品上の上限は設けない。
-- `estimateActualDifferenceMinutes`: `actualTotalMinutes - estimatedMinutes`。正数は実績が見積りを上回り、負数は見積りが実績を上回り、0は同値を示す。見積りまたは実績記録が未登録の場合は`null`とし、画面では「未算出」と表示する。
+- `estimateActualDifferenceMinutes`: `actualTotalMinutes - estimatedMinutes`。正数は実績が見積りを上回り、負数は見積りが実績を上回り、0は同値を示す。見積りまたは実績記録が未登録の場合は`null`とし、画面では「未算出」と表示する。0分の見積りおよび0分の実績記録も登録済みとして差異を算出する。
 - `parallelStatus`: `READY`、`BLOCKED`、`IN_PROGRESS`、`COMPLETED`、`UNKNOWN`のいずれか。画面ではそれぞれ「並列作業可能」「並列作業不可」「実行中」「完了」「判定不能」と表示する。
-- `parallelStatusWarning`: 判定不能の理由を画面に示す場合に返す任意項目。
+- `parallelStatusWarning`: `parallelStatus`が`UNKNOWN`の場合に必須で返す理由の説明。その他の状態では`null`とする。
 
 ## Must: タスク管理（「タスクの登録」M1-01〜M1-08／「タスクの更新」M2-01〜M2-09／「タスクの削除」M3-01〜M3-06）
 
@@ -180,8 +180,8 @@ GET /api/tasks?parallelStatus=READY
 - `parallelStatus`は`READY`、`BLOCKED`、`IN_PROGRESS`、`COMPLETED`、`UNKNOWN`で絞り込む。
 - `READY`は未着手で先行タスクがない、または全て完了済みのタスク。`BLOCKED`は未完了の先行タスクがあるタスク。
 - 完了済み・実行中タスクはそれぞれ`COMPLETED`・`IN_PROGRESS`とし、READY／BLOCKEDには分類しない。
-- 必要な依存関係情報が個別タスクについて不正・不明な場合は`UNKNOWN`とし、問題の警告情報を返す。
-- 判定不能の場合は、必要に応じて`parallelStatusWarning`に理由を設定し、画面で利用者に示す。
+- 不正な依存関係の削除済みでない既存タスク端点は`UNKNOWN`とする。循環依存の場合は循環を構成するすべての削除済みでないタスクを対象とし、存在しない参照先自体は一覧対象に含めない。それ以外のタスクへ判定不能を波及させない。
+- `UNKNOWN`のタスクには`parallelStatusWarning`を必ず返し、自己依存・循環依存・存在しない参照のいずれかを含む判定不能の理由を画面で利用者に示す。
 - 一覧取得や再判定そのものに失敗した場合はエラー応答を返し、前回の判定結果を最新として返さない。
 - 絞り込み結果が空の場合は200と空の`items`を返す。`parallelStatus=READY`で結果がない場合、画面は「現在、並列に着手可能なタスクはありません」と表示する。
 - 論理削除済みタスクは一覧・再判定に含めない。担当者が未入力のタスクは除外せず、画面で「未割当」と表示する。
