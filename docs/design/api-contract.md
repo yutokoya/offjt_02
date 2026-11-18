@@ -46,9 +46,12 @@
   "taskId": 101,
   "taskName": "API契約を確認する",
   "description": null,
+  "assigneeName": null,
   "dueDate": "2026-11-18"
 }
 ```
+
+`assigneeName`はMustのタスク情報とし、自由入力の任意項目とする。未設定は`null`で表現し、画面では「未割当」と表示する。登録・更新時に省略または`null`を指定した場合は未設定として扱う。
 
 ### Should機能を実装した場合の追加項目
 
@@ -57,7 +60,6 @@
 ```json
 {
   "status": "NOT_STARTED",
-  "assigneeName": null,
   "estimatedMinutes": 60,
   "actualTotalMinutes": 45,
   "estimateActualDifferenceMinutes": -15,
@@ -67,20 +69,19 @@
 ```
 
 - `status`: `NOT_STARTED`、`IN_PROGRESS`、`COMPLETED`のいずれか。画面ではそれぞれ「未着手」「実行中」「完了」と表示する。
-- `assigneeName`: 自由入力。未設定は`null`で、画面では「未割当」と表示する。
 - `estimatedMinutes`、`actualTotalMinutes`: 0以上の整数分数。製品上の上限は設けない。
 - `estimateActualDifferenceMinutes`: `actualTotalMinutes - estimatedMinutes`。正数は実績が見積りを上回り、負数は見積りが実績を上回り、0は同値を示す。見積りまたは実績記録が未登録の場合は`null`とし、画面では「未算出」と表示する。0分の見積りおよび0分の実績記録も登録済みとして差異を算出する。
 - `parallelStatus`: `READY`、`BLOCKED`、`IN_PROGRESS`、`COMPLETED`、`UNKNOWN`のいずれか。画面ではそれぞれ「並列作業可能」「並列作業不可」「実行中」「完了」「判定不能」と表示する。
 - `parallelStatusWarning`: `parallelStatus`が`UNKNOWN`の場合に必須で返す理由の説明。その他の状態では`null`とする。
 
-## Must: タスク管理（「タスクの登録」M1-01〜M1-08／「タスクの更新」M2-01〜M2-09／「タスクの削除」M3-01〜M3-06）
+## Must: タスク管理（「タスクの登録」M1-01〜M1-09／「タスクの更新」M2-01〜M2-10／「タスクの削除」M3-01〜M3-06）
 
 | 操作 | メソッド・パス | 成功応答 | 主な受け入れ条件 |
 |---|---|---|---|
 | タスク一覧 | `GET /api/tasks` | 200、`{"items": [Task, ...]}` | M1-04、M2-04、M3-04 |
-| タスク登録 | `POST /api/tasks` | 201、作成したTask。`Location: /api/tasks/{taskId}`を返す | M1-01〜M1-08 |
+| タスク登録 | `POST /api/tasks` | 201、作成したTask。`Location: /api/tasks/{taskId}`を返す | M1-01〜M1-09 |
 | タスク取得 | `GET /api/tasks/{taskId}` | 200、Task | M2-01 |
-| タスク更新 | `PUT /api/tasks/{taskId}` | 200、更新後のTask | M2-02〜M2-09 |
+| タスク更新 | `PUT /api/tasks/{taskId}` | 200、更新後のTask | M2-02〜M2-10 |
 | タスク削除 | `DELETE /api/tasks/{taskId}` | 204、本文なし。論理削除し、関連する依存関係を削除する | M3-01〜M3-06、S3-11 |
 
 登録・更新リクエスト:
@@ -89,11 +90,12 @@
 {
   "taskName": "API契約を確認する",
   "description": "入出力とエラー応答を確認する",
+  "assigneeName": "参加者A",
   "dueDate": "2026-11-18"
 }
 ```
 
-- `taskName`と`dueDate`は必須。`description`は省略または`null`を許可する。
+- `taskName`と`dueDate`は必須。`description`は省略または`null`を許可する。`assigneeName`は自由入力の任意項目で、省略または`null`の場合は未割当とする。
 - M1-05／M2-05: `taskName`が未入力、空白文字のみ、または`dueDate`が未入力の場合、400を返し保存しない。
 - M1-06／M2-06: 前後のUnicode空白を除去した`taskName`が100文字（Unicodeコードポイント数）を超える場合、400を返し保存しない。
 - M1-07／M2-07: `description`が200文字（Unicodeコードポイント数）を超える場合、400を返し保存しない。
@@ -186,21 +188,19 @@ GET /api/tasks?parallelStatus=READY
 - 絞り込み結果が空の場合は200と空の`items`を返す。`parallelStatus=READY`で結果がない場合、画面は「現在、並列に着手可能なタスクはありません」と表示する。
 - 論理削除済みタスクは一覧・再判定に含めない。担当者が未入力のタスクは除外せず、画面で「未割当」と表示する。
 
-### ステータス・担当者の更新（S2-06、S2-07、S2-08、S2-12、S2-13）
+### ステータスの更新（S2-06、S2-07、S2-08、S2-12）
 
 | 操作 | メソッド・パス | 成功応答 |
 |---|---|---|
-| ステータス・担当者の更新 | `PATCH /api/tasks/{taskId}` | 200、更新後のTask |
+| ステータスの更新 | `PATCH /api/tasks/{taskId}` | 200、更新後のTask |
 
 ```json
 {
-  "status": "IN_PROGRESS",
-  "assigneeName": "参加者A"
+  "status": "IN_PROGRESS"
 }
 ```
 
-- `status`と`assigneeName`の一方だけを指定して更新できる。
-- `status`は定義済みの3値のみ受け付ける。`assigneeName`は自由入力で、未割当への変更は`null`または空文字で指定する。
+- `status`は定義済みの3値のみ受け付ける。担当者はMustの登録・更新APIで設定・変更する。
 
 ## Should S3: タスクの依存関係の可視化（S3-01〜S3-11）
 
@@ -271,8 +271,8 @@ GET /api/tasks?parallelStatus=READY
 
 | API契約の項目 | 受け入れ条件の項目 |
 |---|---|
-| Must: タスク登録 | 「タスクの登録」M1-01〜M1-08 |
-| Must: タスク取得・更新 | 「タスクの更新」M2-01〜M2-09 |
+| Must: タスク登録 | 「タスクの登録」M1-01〜M1-09 |
+| Must: タスク取得・更新 | 「タスクの更新」M2-01〜M2-10 |
 | Must: タスク一覧 | 「タスクの登録」M1-04、「タスクの更新」M2-04、「タスクの削除」M3-04 |
 | Must: タスク削除 | 「タスクの削除」M3-01〜M3-06 |
 | Should S1: 見積り・実績記録・比較 | 「各タスクの作業時間の可視化」S1-01〜S1-13 |
