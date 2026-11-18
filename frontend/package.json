@@ -9,7 +9,7 @@
     "lint": "eslint .",
     "preview": "vite preview",
     "verify": "npm run lint && npm run build",
-    "security": "pnpm audit"
+    "security": "pnpm audit --prod"
   },
   "dependencies": {
     "react": "^19.3.1",
