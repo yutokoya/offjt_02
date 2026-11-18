@@ -15,7 +15,7 @@ erDiagram
 - 1つのタスクは0件以上の実績記録を持つ。
 - タスク間の依存関係は、先行タスクと後続タスクを結ぶ有向関係として別に保持する。
 - 依存関係は自己参照であり、1つのタスクに複数の先行・後続タスクを設定できる。
-- 担当者は自由入力のため、参加者マスタや認証ユーザーとの外部キーは設けない。
+- 担当者はM1/M2のMust要件として自由入力で保持するため、参加者マスタや認証ユーザーとの外部キーは設けない。
 
 ## テーブル定義
 
@@ -29,7 +29,7 @@ erDiagram
 | `due_date` | `DATE` | NOT NULL | M1/M2。期限日 |
 | `deleted_at` | `TIMESTAMPTZ` | NULL可 | M3。NULL以外は論理削除済み |
 | `status` | `VARCHAR(16)` | S2実装時にNOT NULL、初期値`NOT_STARTED`。`NOT_STARTED`／`IN_PROGRESS`／`COMPLETED`のみ | S2。画面表示では「未着手」／「実行中」／「完了」 |
-| `assignee_name` | `TEXT` | NULL可 | S2。自由入力。NULLまたは空欄は「未割当」 |
+| `assignee_name` | `TEXT` | NULL可 | M1/M2。自由入力の任意項目。S2の一覧ではNULLまたは空欄を「未割当」と表示 |
 | `estimated_minutes` | `NUMERIC` | NULL可。設定時は0以上の整数 | S1。タスクごとの見積り分数 |
 
 ### `work_logs`
@@ -86,6 +86,7 @@ erDiagram
 | 条件 | データモデル上の対応 | API／アプリケーション上の対応 |
 |---|---|---|
 | M1-02、M1-05、M2-05 | `task_name`と`due_date`をNOT NULLにする | 未入力・空白のみのタスク名または期限日未入力を拒否し、エラーを返して保存しない |
+| M1-09、M2-10 | NULL可の`assignee_name`をMust項目として保持する | 任意の担当者入力を登録・更新でき、未設定も保存できる |
 | M1-06、M2-06 | `task_name`を`VARCHAR(100)`にする | 前後空白除去後に100文字（Unicodeコードポイント数）を超える入力を拒否する |
 | M1-07、M2-07 | `description`を`VARCHAR(200)`にする | 200文字（Unicodeコードポイント数）を超える入力を拒否する |
 | M1-08、M2-08 | 期限日を`DATE`として保持する | 実在しない日付や不正な形式を拒否し、保存しない |
@@ -110,7 +111,7 @@ erDiagram
 
 ## 実装フェーズ
 
-- **Must:** `tasks`のタスク名・説明・期限日・論理削除を実装する。
+- **Must:** `tasks`のタスク名・説明・担当者・期限日・論理削除を実装する。
 - **Should S1:** Must完了後に`estimated_minutes`と`work_logs`を実装する。
-- **Should S2/S3:** Must完了後に`status`、`assignee_name`、`task_dependencies`と状態判定を実装する。
+- **Should S2/S3:** Must完了後に`status`、`task_dependencies`と状態判定を実装する。
 - Should S1〜S3は採用済みのデータモデルと[API契約](./api-contract.md)に沿って実装し、必要なFlywayマイグレーションを追加する。個別の実装順・担当者・見積りはWBSで決定する。
