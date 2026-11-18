@@ -13,16 +13,16 @@ case "${1:-}" in
     (cd frontend && pnpm security) || status=1
     (
       scan_dir=$(mktemp -d) || exit 1
-      trap 'rm -f -- "$scan_dir/pom.xml"; rmdir -- "$scan_dir"' EXIT
-      (cd backend && bash mvnw -B org.apache.maven.plugins:maven-help-plugin:3.5.1:effective-pom \
-        "-Doutput=$scan_dir/pom.xml") || exit 1
-      trivy=(docker run --rm --mount "type=bind,source=$scan_dir/pom.xml,target=/scan/pom.xml,readonly")
+      trap 'rm -f -- "$scan_dir/bom.json"; rmdir -- "$scan_dir"' EXIT
+      (cd backend && bash mvnw -B org.cyclonedx:cyclonedx-maven-plugin:2.9.1:makeBom \
+        "-DoutputDirectory=$scan_dir" -DoutputFormat=json) || exit 1
+      trivy=(docker run --rm --mount "type=bind,source=$scan_dir/bom.json,target=/scan/bom.json,readonly")
       if [[ -n "${TRIVY_CA_BUNDLE:-}" ]]; then
         trivy+=(--mount "type=bind,source=$TRIVY_CA_BUNDLE,target=/ca.pem,readonly" --env TRIVY_CACERT=/ca.pem)
       fi
       "${trivy[@]}" aquasec/trivy:0.76.2@sha256:8f6bb947dbc528902e11f2f5be52f7b519f6a39d5d148f41166f2040499768fb \
-        fs --no-progress --db-repository ghcr.io/aquasecurity/trivy-db:2 \
-        --scanners vuln --severity CRITICAL --exit-code 1 /scan
+        sbom --offline-scan --no-progress --db-repository ghcr.io/aquasecurity/trivy-db:2 \
+        --scanners vuln --severity CRITICAL --exit-code 1 /scan/bom.json
     ) || status=1
     if [[ "$(git rev-parse --is-shallow-repository)" != false ]]; then
       echo "Gitleaks requires full history. Run git fetch --unshallow first if this is a shallow clone." >&2
