@@ -24,6 +24,16 @@ test('the task list and registration form render as separate screens', async () 
     assert.match(registrationMarkup, /<form/)
     assert.match(registrationMarkup, /一覧に戻る/)
     assert.doesNotMatch(registrationMarkup, /list-heading/)
+
+    const { TaskUpdatePage } = await vite.ssrLoadModule(
+      '/src/features/tasks/TaskUpdatePage.tsx',
+    )
+    const updateMarkup = renderToStaticMarkup(
+      createElement(TaskUpdatePage, { taskId: 1, onBack: () => {} }),
+    )
+    assert.match(updateMarkup, /<h2 id="update-heading">タスク更新<\/h2>/)
+    assert.match(updateMarkup, /更新/)
+    assert.doesNotMatch(updateMarkup, /担当者/)
   } finally {
     await vite.close()
   }
