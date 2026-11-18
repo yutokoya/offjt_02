@@ -11,7 +11,7 @@ test('the frontend can render its initial screen', async () => {
   try {
     const { default: App } = await vite.ssrLoadModule('/src/App.tsx')
     const markup = renderToStaticMarkup(createElement(App))
-    assert.match(markup, /<h1>Get started<\/h1>/)
+    assert.match(markup, /<h1>タスク管理<\/h1>/)
   } finally {
     await vite.close()
   }
