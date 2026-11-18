@@ -7,7 +7,58 @@ on:
       - main
 
 jobs:
-  frontend:
+  verify:
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:17
+
+        env:
+          POSTGRES_DB: attendance
+          POSTGRES_USER: attendance
+          POSTGRES_PASSWORD: attendance
+
+        ports:
+          - 5432:5432
+
+        options: >-
+          --health-cmd="pg_isready -U attendance"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=5
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+          cache-dependency-path: frontend/pnpm-lock.yaml
+
+      - run: pnpm install --frozen-lockfile
+        working-directory: frontend
+
+      - run: pnpm verify
+        working-directory: frontend
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+
+      - run: chmod +x mvnw
+        working-directory: backend
+
+      - run: ./mvnw verify
+        working-directory: backend
+
+  security:
     runs-on: ubuntu-latest
 
     defaults:
@@ -29,47 +80,8 @@ jobs:
 
       - run: pnpm install --frozen-lockfile
 
-      - run: pnpm verify
-
       - run: pnpm security
 
       - uses: gitleaks/gitleaks-action@v2
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-  backend:
-    runs-on: ubuntu-latest
-
-    services:
-      postgres:
-        image: postgres:17
-
-        env:
-          POSTGRES_DB: attendance
-          POSTGRES_USER: attendance
-          POSTGRES_PASSWORD: attendance
-
-        ports:
-          - 5432:5432
-
-        options: >-
-          --health-cmd="pg_isready -U attendance"
-          --health-interval=10s
-          --health-timeout=5s
-          --health-retries=5
-
-    defaults:
-      run:
-        working-directory: backend
-
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: actions/setup-java@v4
-        with:
-          distribution: temurin
-          java-version: 21
-
-      - run: chmod +x mvnw
-
-      - run: ./mvnw verify
