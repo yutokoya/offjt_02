@@ -1,9 +1,6 @@
 import { useEffect, useState } from 'react'
 import type { FormEvent } from 'react'
-import {
-  fetchTasks,
-  registerTask,
-} from './features/tasks/taskApi'
+import { fetchTasks, registerTask } from './features/tasks/taskApi'
 import type { TaskRegistration, TaskSummary } from './features/tasks/taskApi'
 import './App.css'
 
@@ -24,7 +21,11 @@ function App() {
     void fetchTasks()
       .then(setTasks)
       .catch((cause: unknown) => {
-        setError(cause instanceof Error ? cause.message : 'タスク一覧を取得できませんでした。')
+        setError(
+          cause instanceof Error
+            ? cause.message
+            : 'タスク一覧を取得できませんでした。',
+        )
       })
   }, [])
 
@@ -41,7 +42,11 @@ function App() {
       await registerTask(task)
       setMessage('タスク登録処理を呼び出しました。')
     } catch (cause: unknown) {
-      setError(cause instanceof Error ? cause.message : 'タスクを登録できませんでした。')
+      setError(
+        cause instanceof Error
+          ? cause.message
+          : 'タスクを登録できませんでした。',
+      )
     }
   }
 
@@ -62,14 +67,18 @@ function App() {
             説明
             <textarea
               value={task.description}
-              onChange={(event) => updateTask('description', event.target.value)}
+              onChange={(event) =>
+                updateTask('description', event.target.value)
+              }
             />
           </label>
           <label>
             担当者
             <input
               value={task.assigneeName}
-              onChange={(event) => updateTask('assigneeName', event.target.value)}
+              onChange={(event) =>
+                updateTask('assigneeName', event.target.value)
+              }
             />
           </label>
           <label>

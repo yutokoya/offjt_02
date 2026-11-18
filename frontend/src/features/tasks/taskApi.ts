@@ -23,9 +23,7 @@ export async function fetchTasks(): Promise<TaskSummary[]> {
   return body.items
 }
 
-export async function registerTask(
-  task: TaskRegistration,
-): Promise<void> {
+export async function registerTask(task: TaskRegistration): Promise<void> {
   const response = await fetch('/api/tasks', {
     method: 'POST',
     headers: {
