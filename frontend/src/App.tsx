@@ -1,121 +1,104 @@
-import { useState } from 'react'
-import heroImg from './assets/hero.png'
-import reactLogo from './assets/react.svg'
-import viteLogo from './assets/vite.svg'
+import { useEffect, useState } from 'react'
+import type { FormEvent } from 'react'
+import {
+  fetchTasks,
+  registerTask,
+} from './features/tasks/taskApi'
+import type { TaskRegistration, TaskSummary } from './features/tasks/taskApi'
 import './App.css'
 
+const emptyTask: TaskRegistration = {
+  taskName: '',
+  description: '',
+  assigneeName: '',
+  dueDate: '',
+}
+
 function App() {
-  const [count, setCount] = useState(0)
+  const [task, setTask] = useState(emptyTask)
+  const [tasks, setTasks] = useState<TaskSummary[]>([])
+  const [message, setMessage] = useState('')
+  const [error, setError] = useState('')
+
+  useEffect(() => {
+    void fetchTasks()
+      .then(setTasks)
+      .catch((cause: unknown) => {
+        setError(cause instanceof Error ? cause.message : 'タスク一覧を取得できませんでした。')
+      })
+  }, [])
+
+  const updateTask = (field: keyof TaskRegistration, value: string) => {
+    setTask((current) => ({ ...current, [field]: value }))
+  }
+
+  const submit = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault()
+    setMessage('')
+    setError('')
+
+    try {
+      await registerTask(task)
+      setMessage('タスク登録処理を呼び出しました。')
+    } catch (cause: unknown) {
+      setError(cause instanceof Error ? cause.message : 'タスクを登録できませんでした。')
+    }
+  }
 
   return (
-    <>
-      <section id="center">
-        <div className="hero">
-          <img src={heroImg} className="base" width="170" height="179" alt="" />
-          <img src={reactLogo} className="framework" alt="React logo" />
-          <img src={viteLogo} className="vite" alt="Vite logo" />
-        </div>
-        <div>
-          <h1>Get started</h1>
-          <p>
-            Edit <code>src/App.tsx</code> and save to test <code>HMR</code>
-          </p>
-        </div>
-        <button
-          type="button"
-          className="counter"
-          onClick={() => setCount((count) => count + 1)}
-        >
-          Count is {count}
-        </button>
+    <main>
+      <h1>タスク管理</h1>
+      <section aria-labelledby="registration-heading">
+        <h2 id="registration-heading">タスク登録</h2>
+        <form onSubmit={submit}>
+          <label>
+            タスク名
+            <input
+              value={task.taskName}
+              onChange={(event) => updateTask('taskName', event.target.value)}
+            />
+          </label>
+          <label>
+            説明
+            <textarea
+              value={task.description}
+              onChange={(event) => updateTask('description', event.target.value)}
+            />
+          </label>
+          <label>
+            担当者
+            <input
+              value={task.assigneeName}
+              onChange={(event) => updateTask('assigneeName', event.target.value)}
+            />
+          </label>
+          <label>
+            期限日
+            <input
+              type="date"
+              value={task.dueDate}
+              onChange={(event) => updateTask('dueDate', event.target.value)}
+            />
+          </label>
+          <button type="submit">登録</button>
+        </form>
+        {message && <p role="status">{message}</p>}
+        {error && <p role="alert">{error}</p>}
       </section>
 
-      <div className="ticks"></div>
-
-      <section id="next-steps">
-        <div id="docs">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#documentation-icon"></use>
-          </svg>
-          <h2>Documentation</h2>
-          <p>Your questions, answered</p>
+      <section aria-labelledby="list-heading">
+        <h2 id="list-heading">タスク一覧</h2>
+        {tasks.length === 0 ? (
+          <p>タスクはありません。</p>
+        ) : (
           <ul>
-            <li>
-              <a href="https://vite.dev/" target="_blank">
-                <img className="logo" src={viteLogo} alt="" />
-                Explore Vite
-              </a>
-            </li>
-            <li>
-              <a href="https://react.dev/" target="_blank">
-                <img className="button-icon" src={reactLogo} alt="" />
-                Learn more
-              </a>
-            </li>
+            {tasks.map((item) => (
+              <li key={item.taskId}>{item.taskName}</li>
+            ))}
           </ul>
-        </div>
-        <div id="social">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#social-icon"></use>
-          </svg>
-          <h2>Connect with us</h2>
-          <p>Join the Vite community</p>
-          <ul>
-            <li>
-              <a href="https://github.com/vitejs/vite" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#github-icon"></use>
-                </svg>
-                GitHub
-              </a>
-            </li>
-            <li>
-              <a href="https://chat.vite.dev/" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#discord-icon"></use>
-                </svg>
-                Discord
-              </a>
-            </li>
-            <li>
-              <a href="https://x.com/vite_js" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#x-icon"></use>
-                </svg>
-                X.com
-              </a>
-            </li>
-            <li>
-              <a href="https://bsky.app/profile/vite.dev" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#bluesky-icon"></use>
-                </svg>
-                Bluesky
-              </a>
-            </li>
-          </ul>
-        </div>
+        )}
       </section>
-
-      <div className="ticks"></div>
-      <section id="spacer"></section>
-    </>
+    </main>
   )
 }
 
