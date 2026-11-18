@@ -81,6 +81,45 @@
 	<build>
 		<plugins>
 			<plugin>
+				<groupId>org.apache.maven.plugins</groupId>
+				<artifactId>maven-checkstyle-plugin</artifactId>
+				<version>3.6.0</version>
+				<configuration>
+					<includeTestSourceDirectory>true</includeTestSourceDirectory>
+					<checkstyleRules>
+						<module name="Checker">
+							<module name="NewlineAtEndOfFile"/>
+							<module name="RegexpSingleline">
+								<property name="format" value="\s+$"/>
+								<property name="fileExtensions" value="java"/>
+								<property name="message" value="Trailing whitespace"/>
+							</module>
+							<module name="TreeWalker">
+								<module name="WhitespaceAround"/>
+								<module name="ImportOrder">
+									<property name="option" value="bottom"/>
+									<property name="separated" value="true"/>
+									<property name="sortStaticImportsAlphabetically" value="true"/>
+								</module>
+								<module name="AvoidStarImport"/>
+								<module name="UnusedImports"/>
+								<module name="EmptyStatement"/>
+								<module name="EqualsHashCode"/>
+							</module>
+						</module>
+					</checkstyleRules>
+				</configuration>
+				<executions>
+					<execution>
+						<id>check-java-source</id>
+						<phase>validate</phase>
+						<goals>
+							<goal>check</goal>
+						</goals>
+					</execution>
+				</executions>
+			</plugin>
+			<plugin>
 				<groupId>org.springframework.boot</groupId>
 				<artifactId>spring-boot-maven-plugin</artifactId>
 			</plugin>

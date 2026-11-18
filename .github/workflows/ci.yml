@@ -6,6 +6,9 @@ on:
     branches:
       - main
 
+permissions:
+  contents: read
+
 jobs:
   verify:
     runs-on: ubuntu-latest
@@ -44,31 +47,21 @@ jobs:
       - run: pnpm install --frozen-lockfile
         working-directory: frontend
 
-      - run: pnpm verify
-        working-directory: frontend
-
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: 21
 
-      - run: chmod +x mvnw
-        working-directory: backend
-
-      - run: ./mvnw verify
-        working-directory: backend
+      - run: bash scripts/gate.sh verify
 
   security:
     runs-on: ubuntu-latest
-
-    defaults:
-      run:
-        working-directory: frontend
 
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
+          persist-credentials: false
 
       - uses: pnpm/action-setup@v4
         with:
@@ -80,10 +73,9 @@ jobs:
           cache: pnpm
           cache-dependency-path: frontend/pnpm-lock.yaml
 
-      - run: pnpm install --frozen-lockfile
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
 
-      - run: pnpm security
-
-      - uses: gitleaks/gitleaks-action@v2
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - run: bash scripts/gate.sh security
