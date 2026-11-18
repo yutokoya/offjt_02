@@ -1,5 +1,12 @@
 # タスク管理システム
 
+## 技術スタック
+
+- **フロントエンド**: React 19 + TypeScript + Vite
+- **バックエンド**: Spring Boot 4.1 + Java 21 + JPA + Flyway + PostgreSQL 17
+- **テスト**: JUnit 5（バックエンドの単体・結合テスト）。E2E は Cucumber を想定（未導入）
+- **開発環境**: Docker Compose（PostgreSQL）、Vite の HMR
+
 ## 構成
 
 ```text
