@@ -1,6 +1,7 @@
 package com.example.backend.task;
 
 import java.net.URI;
+import java.util.Optional;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -41,16 +42,16 @@ public class TaskController {
 	}
 
 	/**
-	 * タスク取得APIの未実装応答を返します。
+	 * 保存済みタスクを返します。
 	 *
 	 * @param taskId 取得対象のタスクID
-	 * @return 未実装を示す応答
+	 * @return 対象のタスク。存在しない場合は404
 	 */
 	@GetMapping("/{taskId}")
-	public ResponseEntity<String> getTask(@PathVariable Long taskId) {
-		return ResponseEntity
-				.status(HttpStatus.NOT_IMPLEMENTED)
-				.body("タスク取得の業務処理はこれから実装します。");
+	public ResponseEntity<TaskListResponse.TaskSummary> getTask(@PathVariable Long taskId) {
+		Optional<TaskListResponse.TaskSummary> task = taskService.getTask(taskId);
+		return task.map(ResponseEntity::ok)
+				.orElseGet(() -> ResponseEntity.notFound().build());
 	}
 
 	/**
