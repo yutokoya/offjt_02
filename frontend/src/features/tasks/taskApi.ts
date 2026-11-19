@@ -15,7 +15,9 @@ export type TaskFieldErrors = Partial<Record<keyof TaskRegistration, string>>
 export type TaskUpdate = Pick<
   TaskRegistration,
   'taskName' | 'description' | 'dueDate'
->
+> & {
+  assigneeName: string | null
+}
 
 /**
  * APIが返す入力検証エラーを保持する。

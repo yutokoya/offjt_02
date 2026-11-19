@@ -72,7 +72,7 @@ public class TaskController {
 	}
 
 	/**
-	 * タスク登録の入力検証エラーを共通形式で返します。
+	 * タスクの入力検証エラーを共通形式で返します。
 	 *
 	 * @param exception 入力項目ごとの検証エラー
 	 * @return 400と共通エラー応答
@@ -87,19 +87,19 @@ public class TaskController {
 	}
 
 	/**
-	 * タスク更新APIの未実装応答を返します。
+	 * タスクを更新します。
 	 *
 	 * @param taskId 更新対象のタスクID
 	 * @param request 更新するタスク情報
-	 * @return 未実装を示す応答
+	 * @return 更新後のタスク。対象が存在しない場合は404
 	 */
 	@PutMapping("/{taskId}")
-	public ResponseEntity<String> updateTask(
+	public ResponseEntity<TaskListResponse.TaskSummary> updateTask(
 			@PathVariable Long taskId,
 			@RequestBody TaskUpdateRequest request) {
-		return ResponseEntity
-				.status(HttpStatus.NOT_IMPLEMENTED)
-				.body("タスク更新の業務処理はこれから実装します。");
+		return taskService.updateTask(taskId, request)
+				.map(ResponseEntity::ok)
+				.orElseGet(() -> ResponseEntity.notFound().build());
 	}
 
 	/**
