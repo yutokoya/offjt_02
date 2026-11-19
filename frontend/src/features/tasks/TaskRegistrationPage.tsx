@@ -4,7 +4,7 @@ import {
   submitTaskRegistration,
   type TaskRegistrationFeedbackState,
 } from './registrationFeedback'
-import type { TaskRegistration } from './taskApi'
+import type { TaskRegistration, TaskSummary } from './taskApi'
 
 const emptyTask: TaskRegistration = {
   taskName: '',
@@ -15,6 +15,10 @@ const emptyTask: TaskRegistration = {
 
 type TaskRegistrationPageProps = {
   onBack: () => void
+  onRegistered: (
+    task: TaskSummary,
+    feedback: TaskRegistrationFeedbackState,
+  ) => void
 }
 
 const emptyFeedback: TaskRegistrationFeedbackState = {
@@ -46,7 +50,10 @@ export function TaskRegistrationFeedback({
  *
  * @since 0.0.0
  */
-export function TaskRegistrationPage({ onBack }: TaskRegistrationPageProps) {
+export function TaskRegistrationPage({
+  onBack,
+  onRegistered,
+}: TaskRegistrationPageProps) {
   const [task, setTask] = useState(emptyTask)
   const [feedback, setFeedback] = useState(emptyFeedback)
 
@@ -57,7 +64,11 @@ export function TaskRegistrationPage({ onBack }: TaskRegistrationPageProps) {
   const submit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
     setFeedback(emptyFeedback)
-    setFeedback(await submitTaskRegistration(task))
+    const submission = await submitTaskRegistration(task)
+    setFeedback(submission.feedback)
+    if (submission.task) {
+      onRegistered(submission.task, submission.feedback)
+    }
   }
 
   return (

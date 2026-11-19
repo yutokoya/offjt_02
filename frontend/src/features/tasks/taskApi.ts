@@ -10,6 +10,11 @@ export type TaskUpdate = Pick<
   'taskName' | 'description' | 'dueDate'
 >
 
+/**
+ * タスク一覧に表示する保存済みタスク。
+ *
+ * @since 0.0.0
+ */
 export type TaskSummary = TaskRegistration & {
   taskId: number
 }
@@ -18,6 +23,12 @@ type TaskListResponse = {
   items: TaskSummary[]
 }
 
+/**
+ * 保存済みタスクの一覧を取得する。
+ *
+ * @returns タスク一覧
+ * @since 0.0.0
+ */
 export async function fetchTasks(): Promise<TaskSummary[]> {
   const response = await fetch('/api/tasks')
   if (!response.ok) {
@@ -28,7 +39,16 @@ export async function fetchTasks(): Promise<TaskSummary[]> {
   return body.items
 }
 
-export async function registerTask(task: TaskRegistration): Promise<void> {
+/**
+ * タスクを登録し、APIが返す保存済みタスクを取得する。
+ *
+ * @param task 登録するタスク情報
+ * @returns 登録後のタスク
+ * @since 0.0.0
+ */
+export async function registerTask(
+  task: TaskRegistration,
+): Promise<TaskSummary> {
   const response = await fetch('/api/tasks', {
     method: 'POST',
     headers: {
@@ -41,6 +61,8 @@ export async function registerTask(task: TaskRegistration): Promise<void> {
     const message = await response.text()
     throw new Error(message || 'タスクを登録できませんでした。')
   }
+
+  return (await response.json()) as TaskSummary
 }
 
 export async function fetchTask(taskId: number): Promise<TaskSummary> {

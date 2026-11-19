@@ -19,7 +19,10 @@ test('the task list and registration form render as separate screens', async () 
       '/src/features/tasks/TaskRegistrationPage.tsx',
     )
     const registrationMarkup = renderToStaticMarkup(
-      createElement(TaskRegistrationPage, { onBack: () => {} }),
+      createElement(TaskRegistrationPage, {
+        onBack: () => {},
+        onRegistered: () => {},
+      }),
     )
     assert.match(registrationMarkup, /<form/)
     assert.match(registrationMarkup, /一覧に戻る/)
@@ -58,12 +61,18 @@ test('registration success shows a status and API failure shows an alert', async
       assigneeName: '',
       dueDate: '2026-12-01',
     }
+    const registeredTask = { ...task, taskId: 42 }
 
-    globalThis.fetch = async () => new Response(null, { status: 201 })
-    const successFeedback = await submitTaskRegistration(task)
+    globalThis.fetch = async () =>
+      new Response(JSON.stringify(registeredTask), {
+        status: 201,
+        headers: { 'Content-Type': 'application/json' },
+      })
+    const successSubmission = await submitTaskRegistration(task)
     const successMarkup = renderToStaticMarkup(
-      createElement(TaskRegistrationFeedback, successFeedback),
+      createElement(TaskRegistrationFeedback, successSubmission.feedback),
     )
+    assert.deepEqual(successSubmission.task, registeredTask)
     assert.match(successMarkup, /<p role="status">タスクを登録しました。<\/p>/)
     assert.doesNotMatch(successMarkup, /role="alert"/)
 
@@ -71,13 +80,74 @@ test('registration success shows a status and API failure shows an alert', async
       new Response('タスク登録の業務処理はこれから実装します。', {
         status: 501,
       })
-    const failureFeedback = await submitTaskRegistration(task)
+    const failureSubmission = await submitTaskRegistration(task)
     const failureMarkup = renderToStaticMarkup(
-      createElement(TaskRegistrationFeedback, failureFeedback),
+      createElement(TaskRegistrationFeedback, failureSubmission.feedback),
     )
+    assert.equal(failureSubmission.task, null)
     assert.match(failureMarkup, /<p role="alert">/)
     assert.match(failureMarkup, /タスク登録の業務処理はこれから実装します。/)
     assert.doesNotMatch(failureMarkup, /role="status"/)
+  } finally {
+    globalThis.fetch = originalFetch
+    await vite.close()
+  }
+})
+
+test('a registered task appears in the list after it is fetched again', async () => {
+  const vite = await createServer({
+    server: { middlewareMode: true, ws: false },
+  })
+  const originalFetch = globalThis.fetch
+  const registeredTask = {
+    taskId: 42,
+    taskName: 'Persisted task',
+    description: 'Saved description',
+    assigneeName: 'Participant',
+    dueDate: '2026-12-01',
+  }
+  let savedTasks = []
+
+  try {
+    const { fetchTasks, registerTask } = await vite.ssrLoadModule(
+      '/src/features/tasks/taskApi.ts',
+    )
+    const { appendRegisteredTask } = await vite.ssrLoadModule(
+      '/src/features/tasks/taskListState.ts',
+    )
+    globalThis.fetch = async (_url, init) => {
+      if (init?.method === 'POST') {
+        savedTasks = [registeredTask]
+        return new Response(JSON.stringify(registeredTask), {
+          status: 201,
+          headers: { 'Content-Type': 'application/json' },
+        })
+      }
+
+      return new Response(JSON.stringify({ items: savedTasks }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      })
+    }
+
+    const createdTask = await registerTask({
+      taskName: registeredTask.taskName,
+      description: registeredTask.description,
+      assigneeName: registeredTask.assigneeName,
+      dueDate: registeredTask.dueDate,
+    })
+    const listedTasks = await fetchTasks()
+    const existingTask = {
+      ...registeredTask,
+      taskId: 41,
+      taskName: 'Existing task',
+    }
+
+    assert.deepEqual(listedTasks, [registeredTask])
+    assert.deepEqual(appendRegisteredTask([existingTask], createdTask), [
+      existingTask,
+      registeredTask,
+    ])
   } finally {
     globalThis.fetch = originalFetch
     await vite.close()
