@@ -28,10 +28,16 @@ class BackendApplicationTests {
 	@Autowired
 	private TaskRepository taskRepository;
 
+	/**
+	 * Spring Bootアプリケーションのコンテキストを正常に起動できることを確認する。
+	 */
 	@Test
 	void contextLoads() {
 	}
 
+	/**
+	 * 有効なタスク登録で201応答とLocation、作成タスクの内容が返り、同じ内容がDBに保存されることを確認する。
+	 */
 	@Test
 	@Transactional
 	void registeringValidTaskPersistsAndReturnsCreatedTask() throws Exception {
