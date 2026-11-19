@@ -36,8 +36,89 @@ test('the task list and registration form render as separate screens', async () 
     )
     assert.match(updateMarkup, /<h2 id="update-heading">タスク更新<\/h2>/)
     assert.match(updateMarkup, /更新/)
-    assert.doesNotMatch(updateMarkup, /担当者/)
+    assert.match(updateMarkup, /タスクを取得しています。/)
   } finally {
+    await vite.close()
+  }
+})
+
+test('the update form displays the task values returned by the API', async () => {
+  const vite = await createServer({
+    server: { middlewareMode: true, ws: false },
+  })
+
+  try {
+    const { TaskUpdateForm } = await vite.ssrLoadModule(
+      '/src/features/tasks/TaskUpdatePage.tsx',
+    )
+    const formMarkup = renderToStaticMarkup(
+      createElement(TaskUpdateForm, {
+        task: {
+          taskName: 'Existing task',
+          description: 'Current description',
+          assigneeName: 'Participant',
+          dueDate: '2026-11-19',
+        },
+        onChange: () => {},
+        onSubmit: () => {},
+      }),
+    )
+    assert.match(formMarkup, /value="Existing task"/)
+    assert.match(formMarkup, /Current description/)
+    assert.match(formMarkup, /担当者: Participant/)
+    assert.match(formMarkup, /value="2026-11-19"/)
+
+    const unassignedMarkup = renderToStaticMarkup(
+      createElement(TaskUpdateForm, {
+        task: {
+          taskName: 'Task without assignee',
+          description: '',
+          assigneeName: null,
+          dueDate: '2026-11-20',
+        },
+        onChange: () => {},
+        onSubmit: () => {},
+      }),
+    )
+    assert.match(unassignedMarkup, /担当者: 未割当/)
+  } finally {
+    await vite.close()
+  }
+})
+
+test('fetchTask retrieves the selected task and reports a missing task', async () => {
+  const vite = await createServer({
+    server: { middlewareMode: true, ws: false },
+  })
+  const originalFetch = globalThis.fetch
+
+  try {
+    const { fetchTask } = await vite.ssrLoadModule(
+      '/src/features/tasks/taskApi.ts',
+    )
+    const task = {
+      taskId: 42,
+      taskName: 'Existing task',
+      description: 'Current description',
+      assigneeName: 'Participant',
+      dueDate: '2026-11-19',
+    }
+    let requestedUrl
+    globalThis.fetch = async (url) => {
+      requestedUrl = url
+      return new Response(JSON.stringify(task), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      })
+    }
+
+    assert.deepEqual(await fetchTask(42), task)
+    assert.equal(requestedUrl, '/api/tasks/42')
+
+    globalThis.fetch = async () => new Response('', { status: 404 })
+    await assert.rejects(fetchTask(404), /タスクを取得できませんでした。/)
+  } finally {
+    globalThis.fetch = originalFetch
     await vite.close()
   }
 })

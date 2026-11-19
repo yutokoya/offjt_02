@@ -107,4 +107,44 @@ class TaskControllerTests {
 				.andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_JSON))
 				.andExpect(jsonPath("$.items[?(@.taskId == " + taskId + ")]").isNotEmpty());
 	}
+
+	/**
+	 * 保存済みタスクの個別取得で全ての現在値が返ることを確認する。
+	 */
+	@Test
+	@Transactional
+	void gettingExistingTaskReturnsItsCurrentValues() throws Exception {
+		String taskName = "PR-01 task detail " + UUID.randomUUID();
+		MvcResult createdResult = mockMvc.perform(post("/api/tasks")
+						.contentType(MediaType.APPLICATION_JSON)
+						.content("""
+								{
+								  "taskName": "%s",
+								  "description": "Current description",
+								  "assigneeName": "Participant",
+								  "dueDate": "2026-11-19"
+								}
+								""".formatted(taskName)))
+				.andExpect(status().isCreated())
+				.andReturn();
+		String location = createdResult.getResponse().getHeader("Location");
+		assertThat(location).isNotNull();
+
+		mockMvc.perform(get(location))
+				.andExpect(status().isOk())
+				.andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_JSON))
+				.andExpect(jsonPath("$.taskName").value(taskName))
+				.andExpect(jsonPath("$.description").value("Current description"))
+				.andExpect(jsonPath("$.assigneeName").value("Participant"))
+				.andExpect(jsonPath("$.dueDate").value("2026-11-19"));
+	}
+
+	/**
+	 * 存在しないタスクの個別取得で404を返すことを確認する。
+	 */
+	@Test
+	void gettingMissingTaskReturnsNotFound() throws Exception {
+		mockMvc.perform(get("/api/tasks/0"))
+				.andExpect(status().isNotFound());
+	}
 }
