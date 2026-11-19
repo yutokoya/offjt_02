@@ -7,7 +7,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
- * タスクの登録と一覧取得を行うサービスです。
+ * タスクの登録、一覧取得、個別取得、更新を行うサービスです。
  */
 @Service
 public class TaskService {
@@ -65,6 +65,26 @@ public class TaskService {
 		return taskRepository.findById(taskId)
 				.filter(task -> task.getDeletedAt() == null)
 				.map(this::toSummary);
+	}
+
+	/**
+	 * 指定されたタスクの編集可能な項目を更新します。
+	 *
+	 * @param taskId 更新対象のタスクID
+	 * @param request 更新するタスク情報
+	 * @return 更新後のタスク。対象が存在しない場合は空
+	 */
+	@Transactional
+	public Optional<TaskListResponse.TaskSummary> updateTask(Long taskId, TaskUpdateRequest request) {
+		return taskRepository.findById(taskId)
+				.map(task -> {
+					task.update(
+							request.taskName(),
+							request.description() == null ? "" : request.description(),
+							request.assigneeName(),
+							LocalDate.parse(request.dueDate()));
+					return toSummary(task);
+				});
 	}
 
 	private TaskListResponse.TaskSummary toSummary(TaskEntity task) {

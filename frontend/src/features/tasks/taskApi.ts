@@ -8,7 +8,9 @@ export type TaskRegistration = {
 export type TaskUpdate = Pick<
   TaskRegistration,
   'taskName' | 'description' | 'dueDate'
->
+> & {
+  assigneeName: string | null
+}
 
 /**
  * タスク一覧に表示する保存済みタスク。

@@ -3,13 +3,9 @@ import type { FormEvent } from 'react'
 import { fetchTask, updateTask } from './taskApi'
 import type { TaskSummary, TaskUpdate } from './taskApi'
 
-type TaskUpdateFormState = TaskUpdate & {
-  assigneeName: string | null
-}
-
 type TaskLoadState = {
   taskId: number
-  task: TaskUpdateFormState | null
+  task: TaskUpdate | null
   error: string
 }
 
@@ -78,6 +74,7 @@ export function TaskUpdatePage({ taskId, onBack }: TaskUpdatePageProps) {
       await updateTask(taskId, {
         taskName: task.taskName,
         description: task.description,
+        assigneeName: task.assigneeName,
         dueDate: task.dueDate,
       })
       setMessage('タスク更新処理を呼び出しました。')
@@ -120,7 +117,7 @@ export function TaskUpdatePage({ taskId, onBack }: TaskUpdatePageProps) {
 }
 
 type TaskUpdateFormProps = {
-  task: TaskUpdateFormState
+  task: TaskUpdate
   onChange: (field: keyof TaskUpdate, value: string) => void
   onSubmit: (event: FormEvent<HTMLFormElement>) => void
 }
