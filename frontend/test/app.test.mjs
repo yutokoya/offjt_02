@@ -88,6 +88,27 @@ test('registration success shows a status and API failure shows an alert', async
     assert.match(failureMarkup, /<p role="alert">/)
     assert.match(failureMarkup, /タスク登録の業務処理はこれから実装します。/)
     assert.doesNotMatch(failureMarkup, /role="status"/)
+
+    globalThis.fetch = async () =>
+      new Response(
+        JSON.stringify({
+          code: 'VALIDATION_ERROR',
+          message: '入力内容を確認してください。',
+          fieldErrors: {
+            taskName: 'タスク名は必須です。',
+            dueDate: '期限日は必須です。',
+          },
+        }),
+        { status: 400, headers: { 'Content-Type': 'application/json' } },
+      )
+    const validationSubmission = await submitTaskRegistration(task)
+    const validationMarkup = renderToStaticMarkup(
+      createElement(TaskRegistrationFeedback, validationSubmission.feedback),
+    )
+    assert.equal(validationSubmission.task, null)
+    assert.equal(validationSubmission.feedback.message, '')
+    assert.match(validationMarkup, /id="taskName-error">タスク名は必須です。/)
+    assert.match(validationMarkup, /id="dueDate-error">期限日は必須です。/)
   } finally {
     globalThis.fetch = originalFetch
     await vite.close()
