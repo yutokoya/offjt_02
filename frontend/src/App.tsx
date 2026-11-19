@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { TaskRegistrationPage } from './features/tasks/TaskRegistrationPage'
 import { TaskUpdatePage } from './features/tasks/TaskUpdatePage'
-import { fetchTasks } from './features/tasks/taskApi'
+import { deleteTask, fetchTasks } from './features/tasks/taskApi'
 import type { TaskSummary } from './features/tasks/taskApi'
 import './App.css'
 
@@ -12,6 +12,7 @@ function App() {
     | { type: 'update'; taskId: number }
   >({ type: 'list' })
   const [tasks, setTasks] = useState<TaskSummary[]>([])
+  const [message, setMessage] = useState('')
   const [error, setError] = useState('')
 
   useEffect(() => {
@@ -25,6 +26,29 @@ function App() {
         )
       })
   }, [])
+
+  const removeTask = async (task: TaskSummary) => {
+    if (!window.confirm(`タスク「${task.taskName}」を削除しますか？`)) {
+      return
+    }
+
+    setMessage('')
+    setError('')
+
+    try {
+      await deleteTask(task.taskId)
+      setTasks((current) =>
+        current.filter((item) => item.taskId !== task.taskId),
+      )
+      setMessage('タスクを削除しました。')
+    } catch (cause: unknown) {
+      setError(
+        cause instanceof Error
+          ? cause.message
+          : 'タスクを削除できませんでした。',
+      )
+    }
+  }
 
   return (
     <main>
@@ -45,6 +69,7 @@ function App() {
           >
             タスク登録
           </button>
+          {message && <p role="status">{message}</p>}
           {error && <p role="alert">{error}</p>}
           {tasks.length === 0 ? (
             <p>タスクはありません。</p>
@@ -60,6 +85,9 @@ function App() {
                     }
                   >
                     編集
+                  </button>
+                  <button type="button" onClick={() => void removeTask(item)}>
+                    削除
                   </button>
                 </li>
               ))}

@@ -72,3 +72,19 @@ export async function updateTask(
 
   return (await response.json()) as TaskSummary
 }
+
+/**
+ * Deletes a task through the task API.
+ *
+ * @since 0.0.0
+ */
+export async function deleteTask(taskId: number): Promise<void> {
+  const response = await fetch(`/api/tasks/${taskId}`, {
+    method: 'DELETE',
+  })
+
+  if (!response.ok) {
+    const message = await response.text()
+    throw new Error(message || 'タスクを削除できませんでした。')
+  }
+}
