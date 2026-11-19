@@ -70,8 +70,6 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 24
-          cache: pnpm
-          cache-dependency-path: frontend/pnpm-lock.yaml
 
       - uses: actions/setup-java@v4
         with:
