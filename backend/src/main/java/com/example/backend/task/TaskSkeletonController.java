@@ -1,5 +1,6 @@
 package com.example.backend.task;
 
+import java.net.URI;
 import java.util.List;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -16,6 +17,12 @@ import org.springframework.web.bind.annotation.RestController;
 @RequestMapping("/api/tasks")
 public class TaskSkeletonController {
 
+	private final TaskService taskService;
+
+	public TaskSkeletonController(TaskService taskService) {
+		this.taskService = taskService;
+	}
+
 	@GetMapping
 	public TaskListResponse listTasks() {
 		return new TaskListResponse(List.of());
@@ -29,10 +36,12 @@ public class TaskSkeletonController {
 	}
 
 	@PostMapping
-	public ResponseEntity<String> registerTask(@RequestBody TaskRegistrationRequest request) {
+	public ResponseEntity<TaskListResponse.TaskSummary> registerTask(
+			@RequestBody TaskRegistrationRequest request) {
+		TaskListResponse.TaskSummary task = taskService.registerTask(request);
 		return ResponseEntity
-				.status(HttpStatus.NOT_IMPLEMENTED)
-				.body("タスク登録の業務処理はこれから実装します。");
+				.created(URI.create("/api/tasks/" + task.taskId()))
+				.body(task);
 	}
 
 	@PutMapping("/{taskId}")
