@@ -5,6 +5,7 @@ import type { TaskRegistrationFeedbackState } from './features/tasks/registratio
 import { deleteTask, fetchTasks } from './features/tasks/taskApi'
 import type { TaskSummary } from './features/tasks/taskApi'
 import { appendRegisteredTask } from './features/tasks/taskListState'
+import { confirmTaskDeletion } from './features/tasks/taskDeletion'
 import './App.css'
 
 /**
@@ -35,7 +36,7 @@ function App() {
   }, [])
 
   const removeTask = async (task: TaskSummary) => {
-    if (!window.confirm(`タスク「${task.taskName}」を削除しますか？`)) {
+    if (!confirmTaskDeletion(task)) {
       return
     }
 
