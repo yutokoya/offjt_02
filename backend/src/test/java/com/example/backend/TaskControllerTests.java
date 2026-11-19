@@ -1,5 +1,7 @@
 package com.example.backend;
 
+import com.example.backend.task.TaskDependencyEntity;
+import com.example.backend.task.TaskDependencyRepository;
 import com.example.backend.task.TaskEntity;
 import com.example.backend.task.TaskRepository;
 import java.util.UUID;
@@ -30,14 +32,97 @@ class TaskControllerTests {
 	@Autowired
 	private TaskRepository taskRepository;
 
-	/**
-	 * タスク削除が未実装の場合、501と未実装メッセージを返すことを確認する。
-	 */
+	@Autowired
+	private TaskDependencyRepository taskDependencyRepository;
+
 	@Test
-	void deleteTaskReturnsNotImplementedSkeletonResponse() throws Exception {
-		mockMvc.perform(delete("/api/tasks/1"))
-				.andExpect(status().isNotImplemented())
-				.andExpect(content().string("タスク削除の業務処理はこれから実装します。"));
+	@Transactional
+	void deletingTaskReturnsNoContentAndSetsDeletedAt() throws Exception {
+		String taskName = "PR-02 deletion " + UUID.randomUUID();
+		MvcResult createdResult = mockMvc.perform(post("/api/tasks")
+						.contentType(MediaType.APPLICATION_JSON)
+						.content("""
+								{
+								  "taskName": "%s",
+								  "description": "To be deleted",
+								  "assigneeName": "Participant",
+								  "dueDate": "2026-11-19"
+								}
+								""".formatted(taskName)))
+				.andExpect(status().isCreated())
+				.andReturn();
+		String location = createdResult.getResponse().getHeader("Location");
+		assertThat(location).isNotNull();
+		long taskId = Long.parseLong(location.substring(location.lastIndexOf('/') + 1));
+
+		mockMvc.perform(delete(location))
+				.andExpect(status().isNoContent())
+				.andExpect(content().string(""));
+
+		TaskEntity deletedTask = taskRepository.findById(taskId).orElseThrow();
+		assertThat(deletedTask.getDeletedAt()).isNotNull();
+	}
+
+	@Test
+	@Transactional
+	void deletingTaskRemovesDependenciesConnectedToIt() throws Exception {
+		long predecessorTaskId = createTask("PR-02 predecessor");
+		long targetTaskId = createTask("PR-02 target");
+		long successorTaskId = createTask("PR-02 successor");
+		long unrelatedPredecessorTaskId = createTask("PR-02 unrelated predecessor");
+		long unrelatedSuccessorTaskId = createTask("PR-02 unrelated successor");
+		taskDependencyRepository.save(new TaskDependencyEntity(predecessorTaskId, targetTaskId));
+		taskDependencyRepository.save(new TaskDependencyEntity(targetTaskId, successorTaskId));
+		taskDependencyRepository.save(
+				new TaskDependencyEntity(unrelatedPredecessorTaskId, unrelatedSuccessorTaskId));
+
+		mockMvc.perform(delete("/api/tasks/" + targetTaskId))
+				.andExpect(status().isNoContent());
+
+		assertThat(taskDependencyRepository.findAll()).singleElement()
+				.satisfies(dependency -> assertThat(dependency.getId().getPredecessorTaskId())
+						.isEqualTo(unrelatedPredecessorTaskId))
+				.satisfies(dependency -> assertThat(dependency.getId().getSuccessorTaskId())
+						.isEqualTo(unrelatedSuccessorTaskId));
+	}
+
+	@Test
+	@Transactional
+	void failedDeletionDoesNotRemoveDependenciesOrChangeAnotherTask() throws Exception {
+		long predecessorTaskId = createTask("PR-02 failed predecessor");
+		long successorTaskId = createTask("PR-02 failed successor");
+		taskDependencyRepository.save(new TaskDependencyEntity(predecessorTaskId, successorTaskId));
+
+		mockMvc.perform(delete("/api/tasks/999999999"))
+				.andExpect(status().isNotFound());
+
+		assertThat(taskDependencyRepository.findAll()).singleElement()
+				.satisfies(dependency -> assertThat(dependency.getId().getPredecessorTaskId())
+						.isEqualTo(predecessorTaskId))
+				.satisfies(dependency -> assertThat(dependency.getId().getSuccessorTaskId())
+						.isEqualTo(successorTaskId));
+		assertThat(taskRepository.findById(predecessorTaskId)).isPresent()
+				.get()
+				.extracting(TaskEntity::getDeletedAt)
+				.isNull();
+	}
+
+	private long createTask(String taskName) throws Exception {
+		MvcResult result = mockMvc.perform(post("/api/tasks")
+						.contentType(MediaType.APPLICATION_JSON)
+						.content("""
+								{
+								  "taskName": "%s",
+								  "description": "",
+								  "assigneeName": null,
+								  "dueDate": "2026-11-19"
+								}
+								""".formatted(taskName + " " + UUID.randomUUID())))
+				.andExpect(status().isCreated())
+				.andReturn();
+		String location = result.getResponse().getHeader("Location");
+		assertThat(location).isNotNull();
+		return Long.parseLong(location.substring(location.lastIndexOf('/') + 1));
 	}
 
 	/**

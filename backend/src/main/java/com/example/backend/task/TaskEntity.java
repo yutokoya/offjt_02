@@ -8,6 +8,7 @@ import jakarta.persistence.Id;
 import jakarta.persistence.Table;
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
+import java.time.ZoneOffset;
 
 @Entity
 @Table(name = "tasks")
@@ -65,5 +66,9 @@ public class TaskEntity {
 
 	public OffsetDateTime getDeletedAt() {
 		return deletedAt;
+	}
+
+	void markDeleted() {
+		this.deletedAt = OffsetDateTime.now(ZoneOffset.UTC);
 	}
 }
