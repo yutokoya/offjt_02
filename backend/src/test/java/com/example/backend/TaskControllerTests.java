@@ -14,6 +14,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -76,5 +77,34 @@ class TaskControllerTests {
 		assertThat(savedTask.getDescription()).isEqualTo("Persisted description");
 		assertThat(savedTask.getAssigneeName()).isEqualTo("Participant");
 		assertThat(savedTask.getDueDate().toString()).isEqualTo("2026-11-19");
+	}
+
+	/**
+	 * 登録したタスクが一覧APIからも取得できることを確認する。
+	 */
+	@Test
+	@Transactional
+	void registeredTaskIsIncludedInTaskList() throws Exception {
+		String taskName = "PR-04 task list " + UUID.randomUUID();
+		MvcResult createdResult = mockMvc.perform(post("/api/tasks")
+						.contentType(MediaType.APPLICATION_JSON)
+						.content("""
+								{
+								  "taskName": "%s",
+								  "description": "Persisted description",
+								  "assigneeName": "Participant",
+								  "dueDate": "2026-11-19"
+								}
+								""".formatted(taskName)))
+				.andExpect(status().isCreated())
+				.andReturn();
+		String location = createdResult.getResponse().getHeader("Location");
+		assertThat(location).isNotNull();
+		String taskId = location.substring(location.lastIndexOf('/') + 1);
+
+		mockMvc.perform(get("/api/tasks"))
+				.andExpect(status().isOk())
+				.andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_JSON))
+				.andExpect(jsonPath("$.items[?(@.taskId == " + taskId + ")]").isNotEmpty());
 	}
 }
