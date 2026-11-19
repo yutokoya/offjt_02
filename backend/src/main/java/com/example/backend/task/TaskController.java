@@ -1,10 +1,12 @@
 package com.example.backend.task;
 
 import java.net.URI;
+import java.util.Map;
 import java.util.Optional;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -67,6 +69,21 @@ public class TaskController {
 		return ResponseEntity
 				.created(URI.create("/api/tasks/" + task.taskId()))
 				.body(task);
+	}
+
+	/**
+	 * タスクの入力検証エラーを共通形式で返します。
+	 *
+	 * @param exception 入力項目ごとの検証エラー
+	 * @return 400と共通エラー応答
+	 */
+	@ExceptionHandler(TaskService.TaskValidationException.class)
+	public ResponseEntity<Map<String, Object>> handleValidationError(
+			TaskService.TaskValidationException exception) {
+		return ResponseEntity.badRequest().body(Map.of(
+				"code", "VALIDATION_ERROR",
+				"message", exception.getMessage(),
+				"fieldErrors", exception.fieldErrors()));
 	}
 
 	/**

@@ -24,6 +24,7 @@ type TaskRegistrationPageProps = {
 const emptyFeedback: TaskRegistrationFeedbackState = {
   message: '',
   error: '',
+  fieldErrors: {},
 }
 
 type TaskRegistrationFeedbackProps = TaskRegistrationFeedbackState
@@ -36,11 +37,16 @@ type TaskRegistrationFeedbackProps = TaskRegistrationFeedbackState
 export function TaskRegistrationFeedback({
   message,
   error,
+  fieldErrors,
 }: TaskRegistrationFeedbackProps) {
   return (
     <>
       {message && <p role="status">{message}</p>}
       {error && <p role="alert">{error}</p>}
+      {fieldErrors.taskName && (
+        <p id="taskName-error">{fieldErrors.taskName}</p>
+      )}
+      {fieldErrors.dueDate && <p id="dueDate-error">{fieldErrors.dueDate}</p>}
     </>
   )
 }
@@ -82,6 +88,10 @@ export function TaskRegistrationPage({
           タスク名
           <input
             value={task.taskName}
+            aria-invalid={Boolean(feedback.fieldErrors.taskName)}
+            aria-describedby={
+              feedback.fieldErrors.taskName ? 'taskName-error' : undefined
+            }
             onChange={(event) => updateTask('taskName', event.target.value)}
           />
         </label>
@@ -104,6 +114,10 @@ export function TaskRegistrationPage({
           <input
             type="date"
             value={task.dueDate}
+            aria-invalid={Boolean(feedback.fieldErrors.dueDate)}
+            aria-describedby={
+              feedback.fieldErrors.dueDate ? 'dueDate-error' : undefined
+            }
             onChange={(event) => updateTask('dueDate', event.target.value)}
           />
         </label>

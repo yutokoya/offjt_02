@@ -110,6 +110,76 @@ class TaskControllerTests {
 	}
 
 	/**
+	 * 必須項目の検証エラーは保存されず、既存タスクも変更しないことを確認する。
+	 */
+	@Test
+	@Transactional
+	void requiredTaskFieldsReturnValidationErrorsWithoutSaving() throws Exception {
+		String existingTaskName = "Existing task " + UUID.randomUUID();
+		MvcResult existingResult = mockMvc.perform(post("/api/tasks")
+						.contentType(MediaType.APPLICATION_JSON)
+						.content("""
+								{
+								  "taskName": "  %s  ",
+								  "description": "Existing description",
+								  "assigneeName": "Participant",
+								  "dueDate": "2026-11-19"
+								}
+								""".formatted(existingTaskName)))
+				.andExpect(status().isCreated())
+				.andExpect(jsonPath("$.taskName").value(existingTaskName))
+				.andReturn();
+		String location = existingResult.getResponse().getHeader("Location");
+		assertThat(location).isNotNull();
+		long existingTaskId = Long.parseLong(location.substring(location.lastIndexOf('/') + 1));
+		long taskCountBeforeInvalidRequests = taskRepository.count();
+
+		assertValidationError(
+				"""
+				{
+				  "dueDate": "2026-11-19"
+				}
+				""",
+				"taskName",
+				"タスク名は必須です。");
+		assertValidationError(
+				"""
+				{
+				  "taskName": "   ",
+				  "dueDate": "2026-11-19"
+				}
+				""",
+				"taskName",
+				"タスク名は必須です。");
+		assertValidationError(
+				"""
+				{
+				  "taskName": "Missing due date"
+				}
+				""",
+				"dueDate",
+				"期限日は必須です。");
+
+		assertThat(taskRepository.count()).isEqualTo(taskCountBeforeInvalidRequests);
+		assertThat(taskRepository.findById(existingTaskId).orElseThrow().getTaskName())
+				.isEqualTo(existingTaskName);
+	}
+
+	private void assertValidationError(
+			String requestBody,
+			String field,
+			String expectedFieldMessage) throws Exception {
+		mockMvc.perform(post("/api/tasks")
+						.contentType(MediaType.APPLICATION_JSON)
+						.content(requestBody))
+				.andExpect(status().isBadRequest())
+				.andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_JSON))
+				.andExpect(jsonPath("$.code").value("VALIDATION_ERROR"))
+				.andExpect(jsonPath("$.message").value("入力内容を確認してください。"))
+				.andExpect(jsonPath("$.fieldErrors." + field).value(expectedFieldMessage));
+	}
+
+	/**
 	 * 保存済みタスクの個別取得で全ての現在値が返ることを確認する。
 	 */
 	@Test
