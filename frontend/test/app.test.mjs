@@ -153,3 +153,41 @@ test('a registered task appears in the list after it is fetched again', async ()
     await vite.close()
   }
 })
+
+test('task deletion confirmation identifies the task and supports confirmation or cancellation', async () => {
+  const vite = await createServer({
+    server: { middlewareMode: true, ws: false },
+  })
+
+  try {
+    const { confirmTaskDeletion } = await vite.ssrLoadModule(
+      '/src/features/tasks/taskDeletion.ts',
+    )
+    const task = {
+      taskId: 42,
+      taskName: '不要なタスク',
+      description: '',
+      assigneeName: '',
+      dueDate: '2026-12-01',
+    }
+    const messages = []
+
+    const confirmed = confirmTaskDeletion(task, (message) => {
+      messages.push(message)
+      return true
+    })
+    const cancelled = confirmTaskDeletion(task, (message) => {
+      messages.push(message)
+      return false
+    })
+
+    assert.equal(confirmed, true)
+    assert.equal(cancelled, false)
+    assert.deepEqual(messages, [
+      'タスク「不要なタスク」を削除しますか？',
+      'タスク「不要なタスク」を削除しますか？',
+    ])
+  } finally {
+    await vite.close()
+  }
+})
