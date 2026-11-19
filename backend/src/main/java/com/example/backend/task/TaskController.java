@@ -1,7 +1,6 @@
 package com.example.backend.task;
 
 import java.net.URI;
-import java.util.List;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -32,13 +31,13 @@ public class TaskController {
 	}
 
 	/**
-	 * タスク一覧APIの現在のスケルトン応答を返します。
+	 * 保存済みタスクの一覧を返します。
 	 *
-	 * @return 空のタスク一覧
+	 * @return 通常一覧に表示するタスク
 	 */
 	@GetMapping
 	public TaskListResponse listTasks() {
-		return new TaskListResponse(List.of());
+		return taskService.listTasks();
 	}
 
 	/**
