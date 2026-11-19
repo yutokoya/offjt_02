@@ -4,6 +4,7 @@ import java.time.LocalDate;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -70,6 +71,19 @@ public class TaskService {
 			throw new TaskValidationException(fieldErrors);
 		}
 		return taskName.strip();
+	}
+
+	/**
+	 * 論理削除されていないタスクをIDで取得します。
+	 *
+	 * @param taskId 取得対象のタスクID
+	 * @return 対象のタスク。存在しない場合または論理削除済みの場合は空
+	 */
+	@Transactional(readOnly = true)
+	public Optional<TaskListResponse.TaskSummary> getTask(Long taskId) {
+		return taskRepository.findById(taskId)
+				.filter(task -> task.getDeletedAt() == null)
+				.map(this::toSummary);
 	}
 
 	private TaskListResponse.TaskSummary toSummary(TaskEntity task) {

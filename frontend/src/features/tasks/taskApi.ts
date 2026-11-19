@@ -87,8 +87,9 @@ function parseValidationError(responseBody: string): TaskApiError | null {
  *
  * @since 0.0.0
  */
-export type TaskSummary = TaskRegistration & {
+export type TaskSummary = Omit<TaskRegistration, 'assigneeName'> & {
   taskId: number
+  assigneeName: string | null
 }
 
 type TaskListResponse = {
