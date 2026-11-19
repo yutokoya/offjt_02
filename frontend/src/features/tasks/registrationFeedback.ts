@@ -1,5 +1,6 @@
 import { registerTask } from './taskApi'
-import type { TaskRegistration, TaskSummary } from './taskApi'
+import { TaskApiError } from './taskApi'
+import type { TaskFieldErrors, TaskRegistration, TaskSummary } from './taskApi'
 
 /**
  * タスク登録結果を画面に表示するための状態。
@@ -9,6 +10,7 @@ import type { TaskRegistration, TaskSummary } from './taskApi'
 export type TaskRegistrationFeedbackState = {
   message: string
   error: string
+  fieldErrors: TaskFieldErrors
 }
 
 /**
@@ -34,7 +36,11 @@ export async function submitTaskRegistration(
   try {
     const registeredTask = await registerTask(task)
     return {
-      feedback: { message: 'タスクを登録しました。', error: '' },
+      feedback: {
+        message: 'タスクを登録しました。',
+        error: '',
+        fieldErrors: {},
+      },
       task: registeredTask,
     }
   } catch (cause: unknown) {
@@ -45,6 +51,7 @@ export async function submitTaskRegistration(
           cause instanceof Error
             ? cause.message
             : 'タスクを登録できませんでした。',
+        fieldErrors: cause instanceof TaskApiError ? cause.fieldErrors : {},
       },
       task: null,
     }
