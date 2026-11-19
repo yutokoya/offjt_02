@@ -1,10 +1,17 @@
 import { useEffect, useState } from 'react'
 import { TaskRegistrationPage } from './features/tasks/TaskRegistrationPage'
 import { TaskUpdatePage } from './features/tasks/TaskUpdatePage'
+import type { TaskRegistrationFeedbackState } from './features/tasks/registrationFeedback'
 import { deleteTask, fetchTasks } from './features/tasks/taskApi'
 import type { TaskSummary } from './features/tasks/taskApi'
+import { appendRegisteredTask } from './features/tasks/taskListState'
 import './App.css'
 
+/**
+ * タスク一覧、登録画面、更新画面の表示状態を管理する。
+ *
+ * @since 0.0.0
+ */
 function App() {
   const [screen, setScreen] = useState<
     | { type: 'list' }
@@ -50,11 +57,24 @@ function App() {
     }
   }
 
+  const handleTaskRegistered = (
+    task: TaskSummary,
+    feedback: TaskRegistrationFeedbackState,
+  ) => {
+    setTasks((current) => appendRegisteredTask(current, task))
+    setMessage(feedback.message)
+    setError(feedback.error)
+    setScreen({ type: 'list' })
+  }
+
   return (
     <main>
       <h1>タスク管理</h1>
       {screen.type === 'registration' ? (
-        <TaskRegistrationPage onBack={() => setScreen({ type: 'list' })} />
+        <TaskRegistrationPage
+          onBack={() => setScreen({ type: 'list' })}
+          onRegistered={handleTaskRegistered}
+        />
       ) : screen.type === 'update' ? (
         <TaskUpdatePage
           taskId={screen.taskId}
@@ -65,7 +85,11 @@ function App() {
           <h2 id="list-heading">タスク一覧</h2>
           <button
             type="button"
-            onClick={() => setScreen({ type: 'registration' })}
+            onClick={() => {
+              setMessage('')
+              setError('')
+              setScreen({ type: 'registration' })
+            }}
           >
             タスク登録
           </button>
