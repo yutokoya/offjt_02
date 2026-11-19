@@ -68,7 +68,7 @@ specs/001-task-registration/
 ```text
 backend/
 ├── src/main/java/com/example/backend/task/
-│   ├── TaskSkeletonController.java
+│   ├── TaskController.java
 │   ├── TaskRegistrationRequest.java
 │   ├── TaskListResponse.java
 │   ├── TaskEntity.java
@@ -77,9 +77,9 @@ backend/
 ├── src/main/resources/db/migration/
 │   └── V1__create_tasks.sql
 └── src/test/java/com/example/backend/
+    ├── TaskControllerTests.java
     └── task/
-        ├── TaskServiceTests.java
-        └── TaskControllerTests.java
+        └── TaskServiceTests.java
 
 frontend/
 ├── src/App.tsx
@@ -89,7 +89,7 @@ frontend/
 └── test/app.test.mjs
 ```
 
-**構成上の決定**: 既存の単一Reactアプリを継続する。登録専用画面は`App.tsx`の画面状態から表示し、登録画面と一覧を切り替える。新しいルーター依存は追加しない。既存の`TaskSkeletonController`を登録と一覧のAPIに使用し、永続化は`task`パッケージのサービス・リポジトリに集約する。受け入れ条件とPRの対応は[tasks.md](./tasks.md)を正とする。PR-02（M1-02）内で永続化基盤と登録APIの正常系を実装し、400行・8ファイルのいずれかを超える見込みの場合はM1-02の範囲内でPRを分割する。後続の一覧取得、画面表示、入力検証は各受け入れ条件のPRで扱う。
+**構成上の決定**: 既存の単一Reactアプリを継続する。登録専用画面は`App.tsx`の画面状態から表示し、登録画面と一覧を切り替える。新しいルーター依存は追加しない。既存の`TaskController`を登録と一覧のAPIに使用し、永続化は`task`パッケージのサービス・リポジトリに集約する。受け入れ条件とPRの対応は[tasks.md](./tasks.md)を正とする。PR-02（M1-02）内で永続化基盤と登録APIの正常系を実装し、400行・8ファイルのいずれかを超える見込みの場合はM1-02の範囲内でPRを分割する。後続の一覧取得、画面表示、入力検証は各受け入れ条件のPRで扱う。
 
 ## 実装フェーズ
 

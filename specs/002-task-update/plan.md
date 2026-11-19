@@ -67,7 +67,7 @@ specs/002-task-update/
 ```text
 backend/
 ├── src/main/java/com/example/backend/task/
-│   ├── TaskSkeletonController.java
+│   ├── TaskController.java
 │   ├── TaskUpdateRequest.java
 │   ├── TaskEntity.java
 │   ├── TaskRepository.java

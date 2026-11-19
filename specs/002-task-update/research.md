@@ -3,7 +3,7 @@
 ## 既存構成
 
 - フロントエンドはReact 19 + TypeScript + Viteで、タスク画面は現在`App.tsx`にある。`taskApi.ts`には一覧取得と登録だけがあり、更新APIの呼び出しはない。
-- バックエンドの`TaskSkeletonController`は一覧で空配列を返し、登録は未実装を返す。タスクのJPAエンティティ、リポジトリ、サービス、Flywayマイグレーションはまだ存在しない。
+- バックエンドの`TaskController`は登録APIを実装済みで、一覧は空配列を返し、個別取得・更新は未実装を返す。タスクのJPAエンティティ、リポジトリ、サービス、Flywayマイグレーションは登録機能の実装に含まれる。
 - `docs/design/api-contract.md`は個別取得`GET /api/tasks/{taskId}`と更新`PUT /api/tasks/{taskId}`を定義済み。成功時は200、入力不備は400、対象不在または論理削除済みは404。
 - `docs/design/data-model.md`とADR-003は、タスク名・説明・担当者・期限日を持つ共通タスクモデルと論理削除の方針を定義済み。必須要件の実装を優先する。
 
