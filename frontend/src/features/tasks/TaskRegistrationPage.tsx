@@ -24,6 +24,11 @@ const emptyFeedback: TaskRegistrationFeedbackState = {
 
 type TaskRegistrationFeedbackProps = TaskRegistrationFeedbackState
 
+/**
+ * タスク登録の結果をステータスまたはアラートとして表示する。
+ *
+ * @since 0.0.0
+ */
 export function TaskRegistrationFeedback({
   message,
   error,
@@ -36,6 +41,11 @@ export function TaskRegistrationFeedback({
   )
 }
 
+/**
+ * タスク登録フォームと登録結果を表示する。
+ *
+ * @since 0.0.0
+ */
 export function TaskRegistrationPage({ onBack }: TaskRegistrationPageProps) {
   const [task, setTask] = useState(emptyTask)
   const [feedback, setFeedback] = useState(emptyFeedback)
