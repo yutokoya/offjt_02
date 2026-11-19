@@ -67,7 +67,7 @@ specs/003-task-delete/
 ```text
 backend/
 ├── src/main/java/com/example/backend/task/
-│   ├── TaskSkeletonController.java
+│   ├── TaskController.java
 │   ├── TaskEntity.java
 │   ├── TaskRepository.java
 │   ├── TaskService.java

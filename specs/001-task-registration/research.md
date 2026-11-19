@@ -4,7 +4,7 @@
 
 - フロントエンドはReact 19 + TypeScript + Vite。現在の`App.tsx`には登録フォームと一覧が同時に表示され、`taskApi.ts`に一覧取得と登録の呼び出しがある。
 - `registerTask`は現状レスポンス本文を読み取らず、成功時に`void`を返す。登録APIを201で作成済みTaskを返す契約に合わせ、呼び出し側も作成結果を受け取れるようにする。
-- バックエンドの`TaskSkeletonController`は一覧で空配列を返し、登録は501相当の未実装応答を返す。`TaskRegistrationRequest`と`TaskListResponse`は既にタスク名、説明、担当者、期限日の項目を持つ。
+- バックエンドの`TaskController`は一覧で空配列を返し、登録APIは永続化層に接続されている。`TaskRegistrationRequest`と`TaskListResponse`はタスク名、説明、担当者、期限日の項目を持つ。
 - タスクのJPAエンティティ、リポジトリ、サービス、Flywayマイグレーションはまだ存在しない。`application.yml`はPostgreSQL接続を設定している一方、Hibernateの`ddl-auto`は`update`である。
 - `docs/design/api-contract.md`は`POST /api/tasks`の201応答、作成したTask、`Location`ヘッダー、共通エラー形式を定義済み。`GET /api/tasks`は`{"items": [...]}`を返す。
 - `docs/design/data-model.md`とADR-003は、担当者を自由入力・任意項目とする共通Taskモデルを定義済み。`REQ-UC001`の受け入れ条件には担当者の個別条件がないが、要件概要、現行DTO、共通API契約およびデータモデルには担当者が含まれている。本仕様では共通API契約に合わせ、担当者を登録対象に含める。
