@@ -1,6 +1,9 @@
 import { useState } from 'react'
 import type { FormEvent } from 'react'
-import { registerTask } from './taskApi'
+import {
+  submitTaskRegistration,
+  type TaskRegistrationFeedbackState,
+} from './registrationFeedback'
 import type { TaskRegistration } from './taskApi'
 
 const emptyTask: TaskRegistration = {
@@ -14,10 +17,28 @@ type TaskRegistrationPageProps = {
   onBack: () => void
 }
 
+const emptyFeedback: TaskRegistrationFeedbackState = {
+  message: '',
+  error: '',
+}
+
+type TaskRegistrationFeedbackProps = TaskRegistrationFeedbackState
+
+export function TaskRegistrationFeedback({
+  message,
+  error,
+}: TaskRegistrationFeedbackProps) {
+  return (
+    <>
+      {message && <p role="status">{message}</p>}
+      {error && <p role="alert">{error}</p>}
+    </>
+  )
+}
+
 export function TaskRegistrationPage({ onBack }: TaskRegistrationPageProps) {
   const [task, setTask] = useState(emptyTask)
-  const [message, setMessage] = useState('')
-  const [error, setError] = useState('')
+  const [feedback, setFeedback] = useState(emptyFeedback)
 
   const updateTask = (field: keyof TaskRegistration, value: string) => {
     setTask((current) => ({ ...current, [field]: value }))
@@ -25,19 +46,8 @@ export function TaskRegistrationPage({ onBack }: TaskRegistrationPageProps) {
 
   const submit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
-    setMessage('')
-    setError('')
-
-    try {
-      await registerTask(task)
-      setMessage('タスク登録処理を呼び出しました。')
-    } catch (cause: unknown) {
-      setError(
-        cause instanceof Error
-          ? cause.message
-          : 'タスクを登録できませんでした。',
-      )
-    }
+    setFeedback(emptyFeedback)
+    setFeedback(await submitTaskRegistration(task))
   }
 
   return (
@@ -78,8 +88,7 @@ export function TaskRegistrationPage({ onBack }: TaskRegistrationPageProps) {
         </label>
         <button type="submit">登録</button>
       </form>
-      {message && <p role="status">{message}</p>}
-      {error && <p role="alert">{error}</p>}
+      <TaskRegistrationFeedback {...feedback} />
     </section>
   )
 }

@@ -38,3 +38,48 @@ test('the task list and registration form render as separate screens', async () 
     await vite.close()
   }
 })
+
+test('registration success shows a status and API failure shows an alert', async () => {
+  const vite = await createServer({
+    server: { middlewareMode: true, ws: false },
+  })
+  const originalFetch = globalThis.fetch
+
+  try {
+    const { submitTaskRegistration } = await vite.ssrLoadModule(
+      '/src/features/tasks/registrationFeedback.ts',
+    )
+    const { TaskRegistrationFeedback } = await vite.ssrLoadModule(
+      '/src/features/tasks/TaskRegistrationPage.tsx',
+    )
+    const task = {
+      taskName: 'Test task',
+      description: '',
+      assigneeName: '',
+      dueDate: '2026-12-01',
+    }
+
+    globalThis.fetch = async () => new Response(null, { status: 201 })
+    const successFeedback = await submitTaskRegistration(task)
+    const successMarkup = renderToStaticMarkup(
+      createElement(TaskRegistrationFeedback, successFeedback),
+    )
+    assert.match(successMarkup, /<p role="status">タスクを登録しました。<\/p>/)
+    assert.doesNotMatch(successMarkup, /role="alert"/)
+
+    globalThis.fetch = async () =>
+      new Response('タスク登録の業務処理はこれから実装します。', {
+        status: 501,
+      })
+    const failureFeedback = await submitTaskRegistration(task)
+    const failureMarkup = renderToStaticMarkup(
+      createElement(TaskRegistrationFeedback, failureFeedback),
+    )
+    assert.match(failureMarkup, /<p role="alert">/)
+    assert.match(failureMarkup, /タスク登録の業務処理はこれから実装します。/)
+    assert.doesNotMatch(failureMarkup, /role="status"/)
+  } finally {
+    globalThis.fetch = originalFetch
+    await vite.close()
+  }
+})
