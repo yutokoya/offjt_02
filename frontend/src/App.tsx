@@ -7,7 +7,9 @@ import './App.css'
 
 function App() {
   const [screen, setScreen] = useState<
-    { type: 'list' } | { type: 'registration' } | { type: 'update'; taskId: number }
+    | { type: 'list' }
+    | { type: 'registration' }
+    | { type: 'update'; taskId: number }
   >({ type: 'list' })
   const [tasks, setTasks] = useState<TaskSummary[]>([])
   const [error, setError] = useState('')

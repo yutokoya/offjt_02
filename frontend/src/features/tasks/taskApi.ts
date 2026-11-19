@@ -5,7 +5,10 @@ export type TaskRegistration = {
   dueDate: string
 }
 
-export type TaskUpdate = Pick<TaskRegistration, 'taskName' | 'description' | 'dueDate'>
+export type TaskUpdate = Pick<
+  TaskRegistration,
+  'taskName' | 'description' | 'dueDate'
+>
 
 export type TaskSummary = TaskRegistration & {
   taskId: number
