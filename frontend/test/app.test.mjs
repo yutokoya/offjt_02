@@ -333,6 +333,74 @@ test('task update validates task name length by trimmed Unicode code points', as
   }
 })
 
+// 説明は200 Unicodeコードポイントを送信し、サロゲートペアを含め201コードポイントは送信前に拒否する。
+test('task update validates description length by Unicode code points', async () => {
+  const vite = await createServer({
+    server: { middlewareMode: true, ws: false },
+  })
+  const originalFetch = globalThis.fetch
+  let requestCount = 0
+
+  try {
+    const { submitTaskUpdate } = await vite.ssrLoadModule(
+      '/src/features/tasks/updateFeedback.ts',
+    )
+    const { TaskUpdateForm } = await vite.ssrLoadModule(
+      '/src/features/tasks/TaskUpdatePage.tsx',
+    )
+    globalThis.fetch = async (_url, init) => {
+      requestCount += 1
+      const task = JSON.parse(init.body)
+      return new Response(JSON.stringify({ ...task, taskId: 42 }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      })
+    }
+
+    const validDescription = `${'a'.repeat(198)}😀😀`
+    const validSubmission = await submitTaskUpdate(42, {
+      taskName: 'Valid task',
+      description: validDescription,
+      assigneeName: null,
+      dueDate: '2026-11-20',
+    })
+    assert.equal(validSubmission.task?.description, validDescription)
+    assert.equal(requestCount, 1)
+
+    const invalidSubmission = await submitTaskUpdate(42, {
+      taskName: 'Valid task',
+      description: `${'a'.repeat(199)}😀😀`,
+      assigneeName: null,
+      dueDate: '2026-11-20',
+    })
+    assert.equal(invalidSubmission.task, null)
+    assert.equal(
+      invalidSubmission.feedback.fieldErrors.description,
+      '説明は200文字以内で入力してください。',
+    )
+    assert.equal(requestCount, 1)
+
+    const formMarkup = renderToStaticMarkup(
+      createElement(TaskUpdateForm, {
+        task: {
+          taskName: 'Valid task',
+          description: `${'a'.repeat(199)}😀😀`,
+          assigneeName: null,
+          dueDate: '2026-11-20',
+        },
+        fieldErrors: invalidSubmission.feedback.fieldErrors,
+        onChange: () => {},
+        onSubmit: () => {},
+      }),
+    )
+    assert.match(formMarkup, /aria-invalid="true"/)
+    assert.match(formMarkup, /aria-describedby="description-error"/)
+  } finally {
+    globalThis.fetch = originalFetch
+    await vite.close()
+  }
+})
+
 // 更新APIが返した最新Taskで同じIDの一覧項目だけが置き換わり、他の項目は保持されることを確認する。
 test('an updated task replaces only the matching task in the list', async () => {
   const vite = await createServer({
