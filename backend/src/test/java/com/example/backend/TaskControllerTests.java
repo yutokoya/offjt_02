@@ -496,6 +496,61 @@ class TaskControllerTests {
 	}
 
 	/**
+	 * 更新時のタスク名を空白除去後のUnicodeコードポイント数で判定し、100文字を受け付け101文字を拒否することを確認する。
+	 */
+	@Test
+	@Transactional
+	void taskNameLengthUsesUnicodeCodePointsWhenUpdating() throws Exception {
+		long targetTaskId = createTask("PR-06 target");
+		long otherTaskId = createTask("PR-06 other");
+		long taskCountBeforeUpdate = taskRepository.count();
+		String validTaskName = "a".repeat(98) + "\uD83D\uDE00".repeat(2);
+		String paddedValidTaskName = "\u3000" + validTaskName + "\u3000";
+
+		mockMvc.perform(put("/api/tasks/" + targetTaskId)
+						.contentType(MediaType.APPLICATION_JSON)
+						.content("""
+								{
+								  "taskName": "%s",
+								  "description": "Valid description",
+								  "assigneeName": "Valid assignee",
+								  "dueDate": "2026-12-01"
+								}
+								""".formatted(paddedValidTaskName)))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.taskName").value(validTaskName));
+
+		String invalidTaskName = "\u3000" + "a".repeat(99) + "\uD83D\uDE00".repeat(2) + "\u3000";
+		mockMvc.perform(put("/api/tasks/" + targetTaskId)
+						.contentType(MediaType.APPLICATION_JSON)
+						.content("""
+								{
+								  "taskName": "%s",
+								  "description": "Invalid description",
+								  "assigneeName": "Invalid assignee",
+								  "dueDate": "2026-12-02"
+								}
+								""".formatted(invalidTaskName)))
+				.andExpect(status().isBadRequest())
+				.andExpect(jsonPath("$.code").value("VALIDATION_ERROR"))
+				.andExpect(jsonPath("$.fieldErrors.taskName")
+						.value("タスク名は100文字以内で入力してください。"));
+
+		TaskEntity unchangedTarget = taskRepository.findById(targetTaskId).orElseThrow();
+		assertThat(unchangedTarget.getTaskName()).isEqualTo(validTaskName);
+		assertThat(unchangedTarget.getDescription()).isEqualTo("Valid description");
+		assertThat(unchangedTarget.getAssigneeName()).isEqualTo("Valid assignee");
+		assertThat(unchangedTarget.getDueDate().toString()).isEqualTo("2026-12-01");
+
+		TaskEntity unchangedOther = taskRepository.findById(otherTaskId).orElseThrow();
+		assertThat(unchangedOther.getTaskName()).startsWith("PR-06 other ");
+		assertThat(unchangedOther.getDescription()).isEmpty();
+		assertThat(unchangedOther.getAssigneeName()).isNull();
+		assertThat(unchangedOther.getDueDate().toString()).isEqualTo("2026-11-19");
+		assertThat(taskRepository.count()).isEqualTo(taskCountBeforeUpdate);
+	}
+
+	/**
 	 * 担当者を省略した更新では未割当として保存することを確認する。
 	 */
 	@Test

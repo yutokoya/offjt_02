@@ -1,6 +1,7 @@
 import { updateTask } from './taskApi'
 import { TaskApiError } from './taskApi'
 import type { TaskFieldErrors, TaskSummary, TaskUpdate } from './taskApi'
+import { validateTaskNameLength } from './registrationFeedback'
 
 export type TaskUpdateFeedbackState = {
   message: string
@@ -28,6 +29,11 @@ export async function submitTaskUpdate(
   const fieldErrors: TaskFieldErrors = {}
   if (!task.taskName.trim()) {
     fieldErrors.taskName = 'タスク名は必須です。'
+  } else {
+    const taskNameLengthError = validateTaskNameLength(task.taskName)
+    if (taskNameLengthError) {
+      fieldErrors.taskName = taskNameLengthError
+    }
   }
   if (!task.dueDate.trim()) {
     fieldErrors.dueDate = '期限日は必須です。'
