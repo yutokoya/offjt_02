@@ -123,6 +123,60 @@ test('fetchTask retrieves the selected task and reports a missing task', async (
   }
 })
 
+test('task update feedback reports success only when the update API succeeds', async () => {
+  const vite = await createServer({
+    server: { middlewareMode: true, ws: false },
+  })
+  const originalFetch = globalThis.fetch
+
+  try {
+    const { submitTaskUpdate } = await vite.ssrLoadModule(
+      '/src/features/tasks/updateFeedback.ts',
+    )
+    const { TaskUpdateFeedback } = await vite.ssrLoadModule(
+      '/src/features/tasks/TaskUpdatePage.tsx',
+    )
+    const task = {
+      taskName: 'Updated task',
+      description: 'Updated description',
+      assigneeName: 'Participant',
+      dueDate: '2026-12-01',
+    }
+
+    globalThis.fetch = async () =>
+      new Response(JSON.stringify({ ...task, taskId: 42 }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      })
+    const successFeedback = await submitTaskUpdate(42, task)
+    const successMarkup = renderToStaticMarkup(
+      createElement(TaskUpdateFeedback, successFeedback),
+    )
+    assert.deepEqual(successFeedback, {
+      message: 'タスクを更新しました。',
+      error: '',
+    })
+    assert.match(successMarkup, /<p role="status">タスクを更新しました。<\/p>/)
+    assert.doesNotMatch(successMarkup, /role="alert"/)
+
+    globalThis.fetch = async () =>
+      new Response('更新に失敗しました。', { status: 500 })
+    const failureFeedback = await submitTaskUpdate(42, task)
+    const failureMarkup = renderToStaticMarkup(
+      createElement(TaskUpdateFeedback, failureFeedback),
+    )
+    assert.deepEqual(failureFeedback, {
+      message: '',
+      error: '更新に失敗しました。',
+    })
+    assert.match(failureMarkup, /<p role="alert">更新に失敗しました。<\/p>/)
+    assert.doesNotMatch(failureMarkup, /role="status"/)
+  } finally {
+    globalThis.fetch = originalFetch
+    await vite.close()
+  }
+})
+
 test('registration success shows a status and API failure shows an alert', async () => {
   const vite = await createServer({
     server: { middlewareMode: true, ws: false },

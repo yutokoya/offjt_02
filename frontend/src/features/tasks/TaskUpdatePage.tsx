@@ -1,7 +1,11 @@
 import { useEffect, useState } from 'react'
 import type { FormEvent } from 'react'
-import { fetchTask, updateTask } from './taskApi'
+import { fetchTask } from './taskApi'
 import type { TaskSummary, TaskUpdate } from './taskApi'
+import {
+  submitTaskUpdate,
+  type TaskUpdateFeedbackState,
+} from './updateFeedback'
 
 type TaskLoadState = {
   taskId: number
@@ -20,8 +24,10 @@ export function TaskUpdatePage({ taskId, onBack }: TaskUpdatePageProps) {
     task: null,
     error: '',
   })
-  const [message, setMessage] = useState('')
-  const [error, setError] = useState('')
+  const [feedback, setFeedback] = useState<TaskUpdateFeedbackState>({
+    message: '',
+    error: '',
+  })
   const currentLoad =
     loadedTask.taskId === taskId
       ? loadedTask
@@ -64,27 +70,12 @@ export function TaskUpdatePage({ taskId, onBack }: TaskUpdatePageProps) {
 
   const submit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
-    setMessage('')
-    setError('')
-
-    try {
-      if (!task) {
-        return
-      }
-      await updateTask(taskId, {
-        taskName: task.taskName,
-        description: task.description,
-        assigneeName: task.assigneeName,
-        dueDate: task.dueDate,
-      })
-      setMessage('タスク更新処理を呼び出しました。')
-    } catch (cause: unknown) {
-      setError(
-        cause instanceof Error
-          ? cause.message
-          : 'タスクを更新できませんでした。',
-      )
+    setFeedback({ message: '', error: '' })
+    if (!task) {
+      return
     }
+
+    setFeedback(await submitTaskUpdate(taskId, task))
   }
 
   const updateField = (field: keyof TaskUpdate, value: string) => {
@@ -109,10 +100,23 @@ export function TaskUpdatePage({ taskId, onBack }: TaskUpdatePageProps) {
       ) : (
         !currentLoad.error && <p>タスクを取得しています。</p>
       )}
-      {message && <p role="status">{message}</p>}
-      {error && <p role="alert">{error}</p>}
+      <TaskUpdateFeedback {...feedback} />
       {currentLoad.error && <p role="alert">{currentLoad.error}</p>}
     </section>
+  )
+}
+
+type TaskUpdateFeedbackProps = TaskUpdateFeedbackState
+
+export function TaskUpdateFeedback({
+  message,
+  error,
+}: TaskUpdateFeedbackProps) {
+  return (
+    <>
+      {message && <p role="status">{message}</p>}
+      {error && <p role="alert">{error}</p>}
+    </>
   )
 }
 
