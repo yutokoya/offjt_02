@@ -1,6 +1,7 @@
 package com.example.backend.task;
 
 import java.time.LocalDate;
+import java.time.format.DateTimeParseException;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -84,11 +85,25 @@ public class TaskService {
 		}
 		if (dueDate == null || dueDate.isBlank()) {
 			fieldErrors.put("dueDate", "期限日は必須です。");
+		} else if (!isValidDueDate(dueDate)) {
+			fieldErrors.put("dueDate", "期限日はYYYY-MM-DD形式の実在する日付を入力してください。");
 		}
 		if (!fieldErrors.isEmpty()) {
 			throw new TaskValidationException(fieldErrors);
 		}
 		return normalizedTaskName;
+	}
+
+	private boolean isValidDueDate(String dueDate) {
+		if (!dueDate.matches("[0-9]{4}-[0-9]{2}-[0-9]{2}")) {
+			return false;
+		}
+		try {
+			LocalDate.parse(dueDate);
+			return true;
+		} catch (DateTimeParseException exception) {
+			return false;
+		}
 	}
 
 	/**

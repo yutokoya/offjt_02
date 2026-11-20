@@ -77,6 +77,44 @@ export function validateTaskDescriptionLength(
 }
 
 /**
+ * 期限日が厳密なYYYY-MM-DD形式の実在日でない場合にエラーを返す。
+ *
+ * @param dueDate 入力された期限日
+ * @returns 不正な日付のエラーメッセージ。有効な日付なら`null`
+ * @since 0.0.0
+ */
+export function validateDueDate(dueDate: string): string | null {
+  const validationMessage =
+    '期限日はYYYY-MM-DD形式の実在する日付を入力してください。'
+  if (!/^[0-9]{4}-[0-9]{2}-[0-9]{2}$/.test(dueDate)) {
+    return validationMessage
+  }
+
+  const year = Number(dueDate.slice(0, 4))
+  const month = Number(dueDate.slice(5, 7))
+  const day = Number(dueDate.slice(8, 10))
+  const isLeapYear = year % 4 === 0 && (year % 100 !== 0 || year % 400 === 0)
+  const daysInMonth = [
+    31,
+    isLeapYear ? 29 : 28,
+    31,
+    30,
+    31,
+    30,
+    31,
+    31,
+    30,
+    31,
+    30,
+    31,
+  ]
+
+  return month >= 1 && month <= 12 && day >= 1 && day <= daysInMonth[month - 1]
+    ? null
+    : validationMessage
+}
+
+/**
  * タスクを登録し、画面表示用の結果と保存済みタスクを返す。
  *
  * @param task 登録するタスク
@@ -105,6 +143,18 @@ export async function submitTaskRegistration(
         message: '',
         error: '入力内容を確認してください。',
         fieldErrors: { description: descriptionError },
+      },
+      task: null,
+    }
+  }
+
+  const dueDateError = validateDueDate(task.dueDate)
+  if (dueDateError) {
+    return {
+      feedback: {
+        message: '',
+        error: '入力内容を確認してください。',
+        fieldErrors: { dueDate: dueDateError },
       },
       task: null,
     }
