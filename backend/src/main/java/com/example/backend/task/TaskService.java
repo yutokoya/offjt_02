@@ -176,6 +176,8 @@ public class TaskService {
 		}
 		if (request.dueDate() == null || request.dueDate().isBlank()) {
 			fieldErrors.put("dueDate", "期限日は必須です。");
+		} else if (!isValidDueDate(request.dueDate())) {
+			fieldErrors.put("dueDate", "期限日はYYYY-MM-DD形式の実在する日付を入力してください。");
 		}
 		if (!fieldErrors.isEmpty()) {
 			throw new TaskValidationException(fieldErrors);
