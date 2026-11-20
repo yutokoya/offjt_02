@@ -290,6 +290,43 @@ class TaskControllerTests {
 		assertThat(taskRepository.count()).isEqualTo(taskCountAfterValidRegistration);
 	}
 
+	/**
+	 * 説明をUnicodeコードポイント数で判定し、200文字を受け付け201文字を拒否することを確認する。
+	 */
+	@Test
+	@Transactional
+	void descriptionLengthUsesUnicodeCodePointsAndRejectsOverLimit() throws Exception {
+		String validDescription = " " + "a".repeat(197) + "\uD83D\uDE00".repeat(2);
+		MvcResult createdResult = mockMvc.perform(post("/api/tasks")
+						.contentType(MediaType.APPLICATION_JSON)
+						.content("""
+								{
+								  "taskName": "Description length boundary",
+								  "description": "%s",
+								  "dueDate": "2026-11-19"
+								}
+								""".formatted(validDescription)))
+				.andExpect(status().isCreated())
+				.andExpect(jsonPath("$.description").value(validDescription))
+				.andReturn();
+		assertThat(createdResult.getResponse().getHeader("Location")).isNotNull();
+		long taskCountAfterValidRegistration = taskRepository.count();
+		String invalidDescription = "a".repeat(199) + "\uD83D\uDE00".repeat(2);
+
+		assertValidationError(
+				"""
+				{
+				  "taskName": "Description over limit",
+				  "description": "%s",
+				  "dueDate": "2026-11-19"
+				}
+				""".formatted(invalidDescription),
+				"description",
+				"説明は200文字以内で入力してください。");
+
+		assertThat(taskRepository.count()).isEqualTo(taskCountAfterValidRegistration);
+	}
+
 	private void assertValidationError(
 			String requestBody,
 			String field,

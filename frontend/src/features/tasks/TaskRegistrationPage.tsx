@@ -46,6 +46,9 @@ export function TaskRegistrationFeedback({
       {fieldErrors.taskName && (
         <p id="taskName-error">{fieldErrors.taskName}</p>
       )}
+      {fieldErrors.description && (
+        <p id="description-error">{fieldErrors.description}</p>
+      )}
       {fieldErrors.dueDate && <p id="dueDate-error">{fieldErrors.dueDate}</p>}
     </>
   )
@@ -99,6 +102,10 @@ export function TaskRegistrationPage({
           説明
           <textarea
             value={task.description}
+            aria-invalid={Boolean(feedback.fieldErrors.description)}
+            aria-describedby={
+              feedback.fieldErrors.description ? 'description-error' : undefined
+            }
             onChange={(event) => updateTask('description', event.target.value)}
           />
         </label>

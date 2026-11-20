@@ -62,6 +62,21 @@ export function validateTaskNameLength(taskName: string): string | null {
 }
 
 /**
+ * 説明が200 Unicodeコードポイントを超える場合にエラーを返す。
+ *
+ * @param description 入力された説明
+ * @returns 上限超過時のエラーメッセージ。上限内なら`null`
+ * @since 0.0.0
+ */
+export function validateTaskDescriptionLength(
+  description: string,
+): string | null {
+  return Array.from(description).length > 200
+    ? '説明は200文字以内で入力してください。'
+    : null
+}
+
+/**
  * タスクを登録し、画面表示用の結果と保存済みタスクを返す。
  *
  * @param task 登録するタスク
@@ -78,6 +93,18 @@ export async function submitTaskRegistration(
         message: '',
         error: '入力内容を確認してください。',
         fieldErrors: { taskName: taskNameError },
+      },
+      task: null,
+    }
+  }
+
+  const descriptionError = validateTaskDescriptionLength(task.description)
+  if (descriptionError) {
+    return {
+      feedback: {
+        message: '',
+        error: '入力内容を確認してください。',
+        fieldErrors: { description: descriptionError },
       },
       task: null,
     }
