@@ -33,7 +33,11 @@ test('the task list and registration form render as separate screens', async () 
       '/src/features/tasks/TaskUpdatePage.tsx',
     )
     const updateMarkup = renderToStaticMarkup(
-      createElement(TaskUpdatePage, { taskId: 1, onBack: () => {} }),
+      createElement(TaskUpdatePage, {
+        taskId: 1,
+        onBack: () => {},
+        onUpdated: () => {},
+      }),
     )
     assert.match(updateMarkup, /<h2 id="update-heading">タスク更新<\/h2>/)
     assert.match(updateMarkup, /更新/)
@@ -154,11 +158,14 @@ test('task update feedback reports success only when the update API succeeds', a
       })
     const successFeedback = await submitTaskUpdate(42, task)
     const successMarkup = renderToStaticMarkup(
-      createElement(TaskUpdateFeedback, successFeedback),
+      createElement(TaskUpdateFeedback, successFeedback.feedback),
     )
     assert.deepEqual(successFeedback, {
-      message: 'タスクを更新しました。',
-      error: '',
+      feedback: {
+        message: 'タスクを更新しました。',
+        error: '',
+      },
+      task: { ...task, taskId: 42 },
     })
     assert.match(successMarkup, /<p role="status">タスクを更新しました。<\/p>/)
     assert.doesNotMatch(successMarkup, /role="alert"/)
@@ -167,16 +174,60 @@ test('task update feedback reports success only when the update API succeeds', a
       new Response('更新に失敗しました。', { status: 500 })
     const failureFeedback = await submitTaskUpdate(42, task)
     const failureMarkup = renderToStaticMarkup(
-      createElement(TaskUpdateFeedback, failureFeedback),
+      createElement(TaskUpdateFeedback, failureFeedback.feedback),
     )
     assert.deepEqual(failureFeedback, {
-      message: '',
-      error: '更新に失敗しました。',
+      feedback: {
+        message: '',
+        error: '更新に失敗しました。',
+      },
+      task: null,
     })
     assert.match(failureMarkup, /<p role="alert">更新に失敗しました。<\/p>/)
     assert.doesNotMatch(failureMarkup, /role="status"/)
   } finally {
     globalThis.fetch = originalFetch
+    await vite.close()
+  }
+})
+
+// 更新APIが返した最新Taskで同じIDの一覧項目だけが置き換わり、他の項目は保持されることを確認する。
+test('an updated task replaces only the matching task in the list', async () => {
+  const vite = await createServer({
+    server: { middlewareMode: true, ws: false },
+  })
+
+  try {
+    const { replaceUpdatedTask } = await vite.ssrLoadModule(
+      '/src/features/tasks/taskListState.ts',
+    )
+    const currentTask = {
+      taskId: 42,
+      taskName: 'Old task name',
+      description: 'Old description',
+      assigneeName: 'Participant',
+      dueDate: '2026-11-19',
+    }
+    const otherTask = {
+      taskId: 43,
+      taskName: 'Other task',
+      description: '',
+      assigneeName: null,
+      dueDate: '2026-11-20',
+    }
+    const updatedTask = {
+      ...currentTask,
+      taskName: 'Updated task name',
+      description: 'Updated description',
+      dueDate: '2026-12-01',
+    }
+
+    assert.deepEqual(
+      replaceUpdatedTask([currentTask, otherTask], updatedTask),
+      [updatedTask, otherTask],
+    )
+    assert.deepEqual(replaceUpdatedTask([otherTask], updatedTask), [otherTask])
+  } finally {
     await vite.close()
   }
 })

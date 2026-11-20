@@ -1,9 +1,14 @@
 import { updateTask } from './taskApi'
-import type { TaskUpdate } from './taskApi'
+import type { TaskSummary, TaskUpdate } from './taskApi'
 
 export type TaskUpdateFeedbackState = {
   message: string
   error: string
+}
+
+export type TaskUpdateSubmission = {
+  feedback: TaskUpdateFeedbackState
+  task: TaskSummary | null
 }
 
 /**
@@ -17,20 +22,26 @@ export type TaskUpdateFeedbackState = {
 export async function submitTaskUpdate(
   taskId: number,
   task: TaskUpdate,
-): Promise<TaskUpdateFeedbackState> {
+): Promise<TaskUpdateSubmission> {
   try {
-    await updateTask(taskId, task)
+    const updatedTask = await updateTask(taskId, task)
     return {
-      message: 'タスクを更新しました。',
-      error: '',
+      feedback: {
+        message: 'タスクを更新しました。',
+        error: '',
+      },
+      task: updatedTask,
     }
   } catch (cause: unknown) {
     return {
-      message: '',
-      error:
-        cause instanceof Error
-          ? cause.message
-          : 'タスクを更新できませんでした。',
+      feedback: {
+        message: '',
+        error:
+          cause instanceof Error
+            ? cause.message
+            : 'タスクを更新できませんでした。',
+      },
+      task: null,
     }
   }
 }
