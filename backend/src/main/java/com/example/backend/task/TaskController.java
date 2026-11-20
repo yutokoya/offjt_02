@@ -3,7 +3,6 @@ package com.example.backend.task;
 import java.net.URI;
 import java.util.Map;
 import java.util.Optional;
-import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.ExceptionHandler;
@@ -103,15 +102,16 @@ public class TaskController {
 	}
 
 	/**
-	 * タスク削除APIの未実装応答を返します。
+	 * タスクを論理削除します。
 	 *
 	 * @param taskId 削除対象のタスクID
-	 * @return 削除処理が未実装であることを示す応答
+	 * @return 削除成功時は204、対象が存在しない場合は404
 	 */
 	@DeleteMapping("/{taskId}")
-	public ResponseEntity<String> deleteTask(@PathVariable Long taskId) {
-		return ResponseEntity
-				.status(HttpStatus.NOT_IMPLEMENTED)
-				.body("タスク削除の業務処理はこれから実装します。");
+	public ResponseEntity<Void> deleteTask(@PathVariable Long taskId) {
+		if (!taskService.deleteTask(taskId)) {
+			return ResponseEntity.notFound().build();
+		}
+		return ResponseEntity.noContent().build();
 	}
 }

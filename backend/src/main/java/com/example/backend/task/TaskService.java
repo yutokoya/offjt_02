@@ -16,13 +16,19 @@ public class TaskService {
 
 	private final TaskRepository taskRepository;
 
+	private final TaskDependencyRepository taskDependencyRepository;
+
 	/**
 	 * タスク永続化リポジトリを用いてサービスを初期化します。
 	 *
 	 * @param taskRepository タスク永続化リポジトリ
+	 * @param taskDependencyRepository タスク依存関係リポジトリ
 	 */
-	public TaskService(TaskRepository taskRepository) {
+	public TaskService(
+			TaskRepository taskRepository,
+			TaskDependencyRepository taskDependencyRepository) {
 		this.taskRepository = taskRepository;
+		this.taskDependencyRepository = taskDependencyRepository;
 	}
 
 	/**
@@ -87,6 +93,25 @@ public class TaskService {
 	}
 
 	/**
+	 * タスクを論理削除します。
+	 *
+	 * @param taskId 削除対象のタスクID
+	 * @return 対象タスクが存在し、未削除の場合は`true`
+	 */
+	@Transactional
+	public boolean deleteTask(Long taskId) {
+		Optional<TaskEntity> task = taskRepository.findById(taskId)
+				.filter(entity -> entity.getDeletedAt() == null);
+		if (task.isEmpty()) {
+			return false;
+		}
+
+		taskDependencyRepository.deleteConnectedToTask(taskId);
+		task.get().markDeleted();
+		return true;
+  }
+
+  /**
 	 * 指定されたタスクの編集可能な項目を更新します。
 	 *
 	 * @param taskId 更新対象のタスクID
