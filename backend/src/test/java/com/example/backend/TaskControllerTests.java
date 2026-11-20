@@ -86,6 +86,35 @@ class TaskControllerTests {
 	}
 
 	/**
+	 * 一覧取得だけではタスクや依存関係が変更されないことを確認する。
+	 */
+	@Test
+	@Transactional
+	void listingTasksDoesNotChangeTaskOrRelatedDependencies() throws Exception {
+		long predecessorTaskId = createTask("PR-05 predecessor");
+		long successorTaskId = createTask("PR-05 successor");
+		TaskDependencyEntity dependency =
+				new TaskDependencyEntity(predecessorTaskId, successorTaskId);
+		taskDependencyRepository.save(dependency);
+		TaskEntity taskBeforeList = taskRepository.findById(predecessorTaskId).orElseThrow();
+
+		mockMvc.perform(get("/api/tasks"))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.items[?(@.taskId == " + predecessorTaskId + ")]").exists())
+				.andExpect(jsonPath("$.items[?(@.taskId == " + successorTaskId + ")]").exists());
+
+		TaskEntity taskAfterList = taskRepository.findById(predecessorTaskId).orElseThrow();
+		assertThat(taskAfterList.getTaskName()).isEqualTo(taskBeforeList.getTaskName());
+		assertThat(taskAfterList.getDescription()).isEqualTo(taskBeforeList.getDescription());
+		assertThat(taskAfterList.getAssigneeName()).isEqualTo(taskBeforeList.getAssigneeName());
+		assertThat(taskAfterList.getDueDate()).isEqualTo(taskBeforeList.getDueDate());
+		assertThat(taskAfterList.getDeletedAt()).isNull();
+		assertThat(taskDependencyRepository.findAll()).singleElement()
+				.satisfies(savedDependency ->
+						assertThat(savedDependency.getId()).isEqualTo(dependency.getId()));
+	}
+
+	/**
 	 * 削除対象に接続する依存関係だけが削除され、無関係な依存関係は保持されることを確認する。
 	 */
 	@Test
