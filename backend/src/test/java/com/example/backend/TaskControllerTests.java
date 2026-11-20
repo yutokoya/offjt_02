@@ -36,6 +36,9 @@ class TaskControllerTests {
 	@Autowired
 	private TaskDependencyRepository taskDependencyRepository;
 
+	/**
+	 * タスク削除が204を返し、対象タスクに論理削除日時が設定されることを確認する。
+	 */
 	@Test
 	@Transactional
 	void deletingTaskReturnsNoContentAndSetsDeletedAt() throws Exception {
@@ -64,6 +67,27 @@ class TaskControllerTests {
 		assertThat(deletedTask.getDeletedAt()).isNotNull();
 	}
 
+	/**
+	 * 削除後の一覧APIでは対象が除外され、未削除のタスクは引き続き取得できることを確認する。
+	 */
+	@Test
+	@Transactional
+	void deletedTasksAreOmittedFromListAfterDeletion() throws Exception {
+		long deletedTaskId = createTask("PR-04 deleted task");
+		long activeTaskId = createTask("PR-04 active task");
+
+		mockMvc.perform(delete("/api/tasks/" + deletedTaskId))
+				.andExpect(status().isNoContent());
+
+		mockMvc.perform(get("/api/tasks"))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.items[?(@.taskId == " + deletedTaskId + ")]").isEmpty())
+				.andExpect(jsonPath("$.items[?(@.taskId == " + activeTaskId + ")]").exists());
+	}
+
+	/**
+	 * 削除対象に接続する依存関係だけが削除され、無関係な依存関係は保持されることを確認する。
+	 */
 	@Test
 	@Transactional
 	void deletingTaskRemovesDependenciesConnectedToIt() throws Exception {
@@ -87,6 +111,9 @@ class TaskControllerTests {
 						.isEqualTo(unrelatedSuccessorTaskId));
 	}
 
+	/**
+	 * 存在しないタスクの削除が404となり、依存関係や他のタスクが変更されないことを確認する。
+	 */
 	@Test
 	@Transactional
 	void failedDeletionDoesNotRemoveDependenciesOrChangeAnotherTask() throws Exception {
