@@ -181,6 +181,7 @@ test('task update feedback reports success only when the update API succeeds', a
   }
 })
 
+// 登録成功では完了メッセージを表示し、API失敗・必須項目エラーでは成功扱いにしないことを確認する。
 test('registration success shows a status and API failure shows an alert', async () => {
   const vite = await createServer({
     server: { middlewareMode: true, ws: false },
@@ -254,6 +255,7 @@ test('registration success shows a status and API failure shows an alert', async
   }
 })
 
+// 前後空白除去後の名前をUnicodeコードポイント数で判定し、100文字は受け付け101文字は送信前に拒否することを確認する。
 test('registration validates task name length by trimmed Unicode code points', async () => {
   const vite = await createServer({
     server: { middlewareMode: true, ws: false },
@@ -308,6 +310,7 @@ test('registration validates task name length by trimmed Unicode code points', a
   }
 })
 
+// 登録APIの応答と一覧再取得の両方に、新しいタスクが反映されることを確認する。
 test('a registered task appears in the list after it is fetched again', async () => {
   const vite = await createServer({
     server: { middlewareMode: true, ws: false },
