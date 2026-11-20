@@ -16,9 +16,14 @@ type TaskLoadState = {
 type TaskUpdatePageProps = {
   taskId: number
   onBack: () => void
+  onUpdated: (task: TaskSummary, feedback: TaskUpdateFeedbackState) => void
 }
 
-export function TaskUpdatePage({ taskId, onBack }: TaskUpdatePageProps) {
+export function TaskUpdatePage({
+  taskId,
+  onBack,
+  onUpdated,
+}: TaskUpdatePageProps) {
   const [loadedTask, setLoadedTask] = useState<TaskLoadState>({
     taskId,
     task: null,
@@ -75,7 +80,11 @@ export function TaskUpdatePage({ taskId, onBack }: TaskUpdatePageProps) {
       return
     }
 
-    setFeedback(await submitTaskUpdate(taskId, task))
+    const submission = await submitTaskUpdate(taskId, task)
+    setFeedback(submission.feedback)
+    if (submission.task) {
+      onUpdated(submission.task, submission.feedback)
+    }
   }
 
   const updateField = (field: keyof TaskUpdate, value: string) => {

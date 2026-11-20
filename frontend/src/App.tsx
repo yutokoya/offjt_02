@@ -4,8 +4,12 @@ import { TaskUpdatePage } from './features/tasks/TaskUpdatePage'
 import type { TaskRegistrationFeedbackState } from './features/tasks/registrationFeedback'
 import { deleteTask, fetchTasks } from './features/tasks/taskApi'
 import type { TaskSummary } from './features/tasks/taskApi'
-import { appendRegisteredTask } from './features/tasks/taskListState'
+import {
+  appendRegisteredTask,
+  replaceUpdatedTask,
+} from './features/tasks/taskListState'
 import { confirmTaskDeletion } from './features/tasks/taskDeletion'
+import type { TaskUpdateFeedbackState } from './features/tasks/updateFeedback'
 import './App.css'
 
 /**
@@ -68,6 +72,16 @@ function App() {
     setScreen({ type: 'list' })
   }
 
+  const handleTaskUpdated = (
+    task: TaskSummary,
+    feedback: TaskUpdateFeedbackState,
+  ) => {
+    setTasks((current) => replaceUpdatedTask(current, task))
+    setMessage(feedback.message)
+    setError(feedback.error)
+    setScreen({ type: 'list' })
+  }
+
   return (
     <main>
       <h1>タスク管理</h1>
@@ -80,6 +94,7 @@ function App() {
         <TaskUpdatePage
           taskId={screen.taskId}
           onBack={() => setScreen({ type: 'list' })}
+          onUpdated={handleTaskUpdated}
         />
       ) : (
         <section aria-labelledby="list-heading">
