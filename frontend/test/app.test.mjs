@@ -59,6 +59,7 @@ test('the update form displays the task values returned by the API', async () =>
     )
     const formMarkup = renderToStaticMarkup(
       createElement(TaskUpdateForm, {
+        fieldErrors: {},
         task: {
           taskName: 'Existing task',
           description: 'Current description',
@@ -76,6 +77,7 @@ test('the update form displays the task values returned by the API', async () =>
 
     const unassignedMarkup = renderToStaticMarkup(
       createElement(TaskUpdateForm, {
+        fieldErrors: {},
         task: {
           taskName: 'Task without assignee',
           description: '',
@@ -164,6 +166,7 @@ test('task update feedback reports success only when the update API succeeds', a
       feedback: {
         message: 'タスクを更新しました。',
         error: '',
+        fieldErrors: {},
       },
       task: { ...task, taskId: 42 },
     })
@@ -180,11 +183,97 @@ test('task update feedback reports success only when the update API succeeds', a
       feedback: {
         message: '',
         error: '更新に失敗しました。',
+        fieldErrors: {},
       },
       task: null,
     })
     assert.match(failureMarkup, /<p role="alert">更新に失敗しました。<\/p>/)
     assert.doesNotMatch(failureMarkup, /role="status"/)
+  } finally {
+    globalThis.fetch = originalFetch
+    await vite.close()
+  }
+})
+
+// 空白のみのタスク名・期限日未入力はAPI送信前に拒否し、400応答の項目別エラーも入力欄へ関連付ける。
+test('task update required fields are validated before and after the API request', async () => {
+  const vite = await createServer({
+    server: { middlewareMode: true, ws: false },
+  })
+  const originalFetch = globalThis.fetch
+
+  try {
+    const { submitTaskUpdate } = await vite.ssrLoadModule(
+      '/src/features/tasks/updateFeedback.ts',
+    )
+    const { TaskUpdateFeedback, TaskUpdateForm } = await vite.ssrLoadModule(
+      '/src/features/tasks/TaskUpdatePage.tsx',
+    )
+    let requestCount = 0
+    globalThis.fetch = async () => {
+      requestCount += 1
+      return new Response(
+        JSON.stringify({
+          code: 'VALIDATION_ERROR',
+          message: '入力内容を確認してください。',
+          fieldErrors: {
+            taskName: 'タスク名は必須です。',
+            dueDate: '期限日は必須です。',
+          },
+        }),
+        { status: 400, headers: { 'Content-Type': 'application/json' } },
+      )
+    }
+
+    const invalidTask = {
+      taskName: '　 ',
+      description: '',
+      assigneeName: null,
+      dueDate: '',
+    }
+    const localFailure = await submitTaskUpdate(42, invalidTask)
+    assert.deepEqual(localFailure, {
+      feedback: {
+        message: '',
+        error: '入力内容を確認してください。',
+        fieldErrors: {
+          taskName: 'タスク名は必須です。',
+          dueDate: '期限日は必須です。',
+        },
+      },
+      task: null,
+    })
+    assert.equal(requestCount, 0)
+
+    const serverFailure = await submitTaskUpdate(42, {
+      ...invalidTask,
+      taskName: 'Valid task',
+      dueDate: '2026-11-20',
+    })
+    assert.equal(requestCount, 1)
+    assert.deepEqual(serverFailure.feedback.fieldErrors, {
+      taskName: 'タスク名は必須です。',
+      dueDate: '期限日は必須です。',
+    })
+    assert.equal(serverFailure.task, null)
+
+    const feedbackMarkup = renderToStaticMarkup(
+      createElement(TaskUpdateFeedback, serverFailure.feedback),
+    )
+    const formMarkup = renderToStaticMarkup(
+      createElement(TaskUpdateForm, {
+        task: invalidTask,
+        fieldErrors: serverFailure.feedback.fieldErrors,
+        onChange: () => {},
+        onSubmit: () => {},
+      }),
+    )
+    assert.match(feedbackMarkup, /role="alert">入力内容を確認してください。/)
+    assert.match(feedbackMarkup, /id="taskName-error">タスク名は必須です。/)
+    assert.match(feedbackMarkup, /id="dueDate-error">期限日は必須です。/)
+    assert.match(formMarkup, /aria-invalid="true"/)
+    assert.match(formMarkup, /aria-describedby="taskName-error"/)
+    assert.match(formMarkup, /aria-describedby="dueDate-error"/)
   } finally {
     globalThis.fetch = originalFetch
     await vite.close()

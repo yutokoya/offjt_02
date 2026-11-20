@@ -167,8 +167,12 @@ export async function updateTask(
   })
 
   if (!response.ok) {
-    const message = await response.text()
-    throw new Error(message || 'タスクを更新できませんでした。')
+    const responseBody = await response.text()
+    const validationError = parseValidationError(responseBody)
+    if (validationError) {
+      throw validationError
+    }
+    throw new Error(responseBody || 'タスクを更新できませんでした。')
   }
 
   return (await response.json()) as TaskSummary
