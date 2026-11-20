@@ -14,6 +14,8 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 public class TaskService {
 
+	private static final int MAX_TASK_NAME_CODE_POINTS = 100;
+
 	private final TaskRepository taskRepository;
 
 	private final TaskDependencyRepository taskDependencyRepository;
@@ -67,8 +69,12 @@ public class TaskService {
 		Map<String, String> fieldErrors = new LinkedHashMap<>();
 		String taskName = request.taskName();
 		String dueDate = request.dueDate();
+		String normalizedTaskName = taskName == null ? null : taskName.strip();
 		if (taskName == null || taskName.isBlank()) {
 			fieldErrors.put("taskName", "タスク名は必須です。");
+		} else if (normalizedTaskName.codePointCount(0, normalizedTaskName.length())
+				> MAX_TASK_NAME_CODE_POINTS) {
+			fieldErrors.put("taskName", "タスク名は100文字以内で入力してください。");
 		}
 		if (dueDate == null || dueDate.isBlank()) {
 			fieldErrors.put("dueDate", "期限日は必須です。");
@@ -76,7 +82,7 @@ public class TaskService {
 		if (!fieldErrors.isEmpty()) {
 			throw new TaskValidationException(fieldErrors);
 		}
-		return taskName.strip();
+		return normalizedTaskName;
 	}
 
 	/**
