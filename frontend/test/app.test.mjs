@@ -439,6 +439,75 @@ test('task update validates description length by Unicode code points', async ()
   }
 })
 
+// 日付形式不正・存在しない日付をAPI送信前に拒否し、有効なうるう日は送信する。
+test('task update validates due date format and calendar date', async () => {
+  const vite = await createServer({
+    server: { middlewareMode: true, ws: false },
+  })
+  const originalFetch = globalThis.fetch
+  let requestCount = 0
+
+  try {
+    const { submitTaskUpdate } = await vite.ssrLoadModule(
+      '/src/features/tasks/updateFeedback.ts',
+    )
+    const { TaskUpdateForm } = await vite.ssrLoadModule(
+      '/src/features/tasks/TaskUpdatePage.tsx',
+    )
+    globalThis.fetch = async (_url, init) => {
+      requestCount += 1
+      const task = JSON.parse(init.body)
+      return new Response(JSON.stringify({ ...task, taskId: 42 }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      })
+    }
+
+    const validSubmission = await submitTaskUpdate(42, {
+      taskName: 'Valid task',
+      description: '',
+      assigneeName: null,
+      dueDate: '2024-02-29',
+    })
+    assert.equal(validSubmission.task?.dueDate, '2024-02-29')
+    assert.equal(requestCount, 1)
+
+    for (const dueDate of ['2026-2-01', '2026-02-30']) {
+      const invalidSubmission = await submitTaskUpdate(42, {
+        taskName: 'Valid task',
+        description: '',
+        assigneeName: null,
+        dueDate,
+      })
+      assert.equal(invalidSubmission.task, null)
+      assert.equal(
+        invalidSubmission.feedback.fieldErrors.dueDate,
+        '期限日はYYYY-MM-DD形式の実在する日付を入力してください。',
+      )
+      assert.equal(requestCount, 1)
+
+      const formMarkup = renderToStaticMarkup(
+        createElement(TaskUpdateForm, {
+          task: {
+            taskName: 'Valid task',
+            description: '',
+            assigneeName: null,
+            dueDate,
+          },
+          fieldErrors: invalidSubmission.feedback.fieldErrors,
+          onChange: () => {},
+          onSubmit: () => {},
+        }),
+      )
+      assert.match(formMarkup, /aria-invalid="true"/)
+      assert.match(formMarkup, /aria-describedby="dueDate-error"/)
+    }
+  } finally {
+    globalThis.fetch = originalFetch
+    await vite.close()
+  }
+})
+
 // 更新APIが返した最新Taskで同じIDの一覧項目だけが置き換わり、他の項目は保持されることを確認する。
 test('an updated task replaces only the matching task in the list', async () => {
   const vite = await createServer({

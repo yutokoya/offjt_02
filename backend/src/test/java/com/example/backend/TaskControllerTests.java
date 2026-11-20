@@ -644,6 +644,67 @@ class TaskControllerTests {
 	}
 
 	/**
+	 * 更新時に日付形式不正・実在しない日付を拒否し、有効なうるう日を保存することを確認する。
+	 */
+	@Test
+	@Transactional
+	void dueDateValidationRejectsInvalidDatesWhenUpdating() throws Exception {
+		long targetTaskId = createTask("PR-08 target");
+		long otherTaskId = createTask("PR-08 other");
+		TaskEntity target = taskRepository.findById(targetTaskId).orElseThrow();
+		String taskName = target.getTaskName();
+		String validationMessage = "期限日はYYYY-MM-DD形式の実在する日付を入力してください。";
+
+		mockMvc.perform(put("/api/tasks/" + targetTaskId)
+						.contentType(MediaType.APPLICATION_JSON)
+						.content("""
+								{
+								  "taskName": "%s",
+								  "description": "Updated description",
+								  "assigneeName": "Updated assignee",
+								  "dueDate": "2024-02-29"
+								}
+								""".formatted(taskName)))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.dueDate").value("2024-02-29"));
+
+		assertUpdateValidationError("/api/tasks/" + targetTaskId,
+				"""
+				{
+				  "taskName": "Changed task",
+				  "description": "Changed description",
+				  "assigneeName": "Changed assignee",
+				  "dueDate": "2026-2-01"
+				}
+				""",
+				"dueDate",
+				validationMessage);
+		assertUpdateValidationError("/api/tasks/" + targetTaskId,
+				"""
+				{
+				  "taskName": "Changed task",
+				  "description": "Changed description",
+				  "assigneeName": "Changed assignee",
+				  "dueDate": "2026-02-30"
+				}
+				""",
+				"dueDate",
+				validationMessage);
+
+		TaskEntity unchangedTarget = taskRepository.findById(targetTaskId).orElseThrow();
+		assertThat(unchangedTarget.getTaskName()).isEqualTo(taskName);
+		assertThat(unchangedTarget.getDescription()).isEqualTo("Updated description");
+		assertThat(unchangedTarget.getAssigneeName()).isEqualTo("Updated assignee");
+		assertThat(unchangedTarget.getDueDate().toString()).isEqualTo("2024-02-29");
+
+		TaskEntity unchangedOther = taskRepository.findById(otherTaskId).orElseThrow();
+		assertThat(unchangedOther.getTaskName()).startsWith("PR-08 other ");
+		assertThat(unchangedOther.getDescription()).isEmpty();
+		assertThat(unchangedOther.getAssigneeName()).isNull();
+		assertThat(unchangedOther.getDueDate().toString()).isEqualTo("2026-11-19");
+	}
+
+	/**
 	 * 担当者を省略した更新では未割当として保存することを確認する。
 	 */
 	@Test
