@@ -181,6 +181,7 @@ test('task update feedback reports success only when the update API succeeds', a
   }
 })
 
+// 登録APIの201・501・400応答に応じて、完了・失敗・項目別エラーを表示することを確認する。
 test('registration success shows a status and API failure shows an alert', async () => {
   const vite = await createServer({
     server: { middlewareMode: true, ws: false },
@@ -254,6 +255,7 @@ test('registration success shows a status and API failure shows an alert', async
   }
 })
 
+// 登録したタスクが一覧APIの再取得結果に含まれ、既存タスクとともに一覧状態へ反映されることを確認する。
 test('a registered task appears in the list after it is fetched again', async () => {
   const vite = await createServer({
     server: { middlewareMode: true, ws: false },
@@ -314,6 +316,7 @@ test('a registered task appears in the list after it is fetched again', async ()
   }
 })
 
+// 削除確認に対象タスク名が含まれ、確定・キャンセルの選択結果が返ることを確認する。
 test('task deletion confirmation identifies the task and supports confirmation or cancellation', async () => {
   const vite = await createServer({
     server: { middlewareMode: true, ws: false },
@@ -348,6 +351,53 @@ test('task deletion confirmation identifies the task and supports confirmation o
       'タスク「不要なタスク」を削除しますか？',
     ])
   } finally {
+    await vite.close()
+  }
+})
+
+// DELETEの204応答では完了表示、失敗応答ではエラー表示となり、成功・失敗表示が混在しないことを確認する。
+test('task deletion feedback reports success for 204 and an alert for failures', async () => {
+  const vite = await createServer({
+    server: { middlewareMode: true, ws: false },
+  })
+  const originalFetch = globalThis.fetch
+
+  try {
+    const { submitTaskDeletion } = await vite.ssrLoadModule(
+      '/src/features/tasks/taskDeletionFeedback.ts',
+    )
+    const { TaskFeedback } = await vite.ssrLoadModule('/src/App.tsx')
+
+    globalThis.fetch = async (url, options) => {
+      assert.equal(url, '/api/tasks/42')
+      assert.equal(options.method, 'DELETE')
+      return new Response(null, { status: 204 })
+    }
+    const successFeedback = await submitTaskDeletion(42)
+    const successMarkup = renderToStaticMarkup(
+      createElement(TaskFeedback, successFeedback),
+    )
+    assert.deepEqual(successFeedback, {
+      message: 'タスクを削除しました。',
+      error: '',
+    })
+    assert.match(successMarkup, /<p role="status">タスクを削除しました。<\/p>/)
+    assert.doesNotMatch(successMarkup, /role="alert"/)
+
+    globalThis.fetch = async () =>
+      new Response('削除に失敗しました。', { status: 500 })
+    const failureFeedback = await submitTaskDeletion(42)
+    const failureMarkup = renderToStaticMarkup(
+      createElement(TaskFeedback, failureFeedback),
+    )
+    assert.deepEqual(failureFeedback, {
+      message: '',
+      error: '削除に失敗しました。',
+    })
+    assert.match(failureMarkup, /<p role="alert">削除に失敗しました。<\/p>/)
+    assert.doesNotMatch(failureMarkup, /role="status"/)
+  } finally {
+    globalThis.fetch = originalFetch
     await vite.close()
   }
 })
