@@ -110,7 +110,7 @@ public class TaskService {
 		task.get().markDeleted();
 		return true;
   }
-  
+
   /**
 	 * 指定されたタスクの編集可能な項目を更新します。
 	 *
