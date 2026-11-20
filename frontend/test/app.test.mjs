@@ -221,6 +221,7 @@ test('registration validates task name length by trimmed Unicode code points', a
       )
     }
 
+    // 😀はUTF-16では2単位だがコードポイントでは1文字。全角空白を除くと98 + 2で100文字になる。
     const validSubmission = await submitTaskRegistration({
       taskName: `\u3000${'a'.repeat(98)}😀😀\u3000`,
       description: '',
@@ -230,6 +231,7 @@ test('registration validates task name length by trimmed Unicode code points', a
     assert.equal(validSubmission.task?.taskName, 'a'.repeat(98) + '😀😀')
     assert.equal(requestCount, 1)
 
+    // 99 + 2で101コードポイントとなるため、APIを呼び出す前に拒否される。
     const invalidSubmission = await submitTaskRegistration({
       taskName: 'a'.repeat(99) + '😀😀',
       description: '',
