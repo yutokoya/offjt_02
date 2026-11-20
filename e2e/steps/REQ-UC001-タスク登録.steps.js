@@ -2,7 +2,6 @@ import assert from 'node:assert/strict'
 import { Given, Then, When } from '@cucumber/cucumber'
 import {
   assigneeInput,
-  assertPersistedTaskListUnchanged,
   descriptionInput,
   dueDateInput,
   fetchTaskList,
@@ -10,6 +9,20 @@ import {
   submitRegistration,
   taskNameInput,
 } from '../support/task-page.js'
+
+async function fetchPersistedTasks(world) {
+  const response = await world.context.request.get(
+    new URL('/api/tasks', world.baseUrl).toString(),
+  )
+  assert.equal(
+    response.status(),
+    200,
+    `タスク一覧APIがHTTP ${response.status()}を返しました`,
+  )
+  const body = await response.json()
+  assert.ok(Array.isArray(body.items), 'タスク一覧APIの応答形式が不正です')
+  return body.items
+}
 
 Given('タスク一覧に登録済みタスクが存在しない', async function () {
   assert.equal(this.mockEmptyTaskList, true)
@@ -36,6 +49,7 @@ When(
 
 When(/^(.+) に (.+) を指定して登録する$/, async function (field, inputValue) {
   await openRegistration(this.page)
+  this.persistedTasksBeforeRegistration = await fetchPersistedTasks(this)
   this.currentTaskName = `入力検証-${Date.now()}`
   await taskNameInput(this.page).fill(this.currentTaskName)
   await dueDateInput(this.page).fill('2026-12-01')
@@ -98,7 +112,7 @@ When(/^担当者「(.+)」を指定してタスクを登録する$/, async funct
 When('担当者を指定せずにタスクを登録する', async function () {
   await openRegistration(this.page)
   this.currentTaskName = `担当者未設定-${Date.now()}`
-  this.expectedAssignee = ''
+  this.expectedAssignee = null
   this.expectedDueDate = '2026-12-01'
   await taskNameInput(this.page).fill(this.currentTaskName)
   await dueDateInput(this.page).fill('2026-12-01')
@@ -160,20 +174,46 @@ Then('タスク一覧に新しいタスクが追加されない', async function
   )
 })
 
+Then('タスク一覧に「ログイン画面を作成」が表示される', async function () {
+  const backButton = this.page.getByRole('button', { name: '一覧に戻る' })
+  if (await backButton.isVisible().catch(() => false)) {
+    await backButton.click()
+  }
+  const task = this.page
+    .getByRole('listitem')
+    .filter({ hasText: 'ログイン画面を作成' })
+  assert.equal(await task.isVisible(), true)
+})
+
 Then(/^(\d+)文字のタスク情報は保存されない$/, async function () {
   assert.equal(await this.page.getByRole('alert').isVisible(), true)
-  await assertPersistedTaskListUnchanged(this)
+  assert.ok(
+    this.persistedTasksBeforeRegistration,
+    '登録前のタスク一覧が記録されていません',
+  )
+  const tasks = await fetchPersistedTasks(this)
+  assert.deepEqual(tasks, this.persistedTasksBeforeRegistration)
 })
 
 Then('タスク情報は保存されない', async function () {
   assert.equal(await this.page.getByRole('alert').isVisible(), true)
-  await assertPersistedTaskListUnchanged(this)
+  assert.ok(
+    this.persistedTasksBeforeRegistration,
+    '登録前のタスク一覧が記録されていません',
+  )
+  const tasks = await fetchPersistedTasks(this)
+  assert.deepEqual(tasks, this.persistedTasksBeforeRegistration)
 })
 
 Then(
   'APIから登録済みタスク情報を再取得しても入力したタスク情報は存在しない',
   async function () {
-    await assertPersistedTaskListUnchanged(this)
+    const tasks = await fetchPersistedTasks(this)
+    assert.ok(
+      this.persistedTasksBeforeRegistration,
+      '登録前のタスク一覧が記録されていません',
+    )
+    assert.deepEqual(tasks, this.persistedTasksBeforeRegistration)
   },
 )
 
@@ -200,9 +240,14 @@ Then(/^担当者「(.+)」がタスク情報に保存される$/, async function
 })
 
 Then(/^登録後に担当者「(.+)」を確認できる$/, async function (assignee) {
-  await this.page.getByRole('button', { name: '一覧に戻る' }).click()
+  const task = this.page
+    .getByRole('listitem')
+    .filter({ hasText: this.currentTaskName })
+  await task.getByRole('button', { name: /編集/ }).click()
   assert.equal(
-    await this.page.getByText(assignee, { exact: true }).isVisible(),
+    await this.page
+      .getByText(`担当者: ${assignee}`, { exact: true })
+      .isVisible(),
     true,
   )
 })
@@ -223,11 +268,17 @@ Then('タスクが登録される', async function () {
   assert.equal(savedTask.dueDate, this.expectedDueDate)
   if (this.expectedAssignee !== undefined) {
     assert.equal(savedTask.assigneeName, this.expectedAssignee)
-    assert.equal(
-      await this.page
-        .getByText(this.expectedAssignee || '未割当', { exact: true })
-        .isVisible(),
-      true,
-    )
+    if (this.expectedAssignee === null) {
+      const taskRow = this.page
+        .getByRole('listitem')
+        .filter({ hasText: this.currentTaskName })
+      await taskRow.getByRole('button', { name: /編集/ }).click()
+      assert.equal(
+        await this.page
+          .getByText('担当者: 未割当', { exact: true })
+          .isVisible(),
+        true,
+      )
+    }
   }
 })
