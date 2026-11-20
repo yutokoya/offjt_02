@@ -4,6 +4,7 @@ import { createElement } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { createServer } from 'vite'
 
+// 一覧・登録・更新が別画面として描画され、更新画面では取得中表示が出ることを確認する。
 test('the task list and registration form render as separate screens', async () => {
   const vite = await createServer({
     server: { middlewareMode: true, ws: false },
@@ -42,6 +43,7 @@ test('the task list and registration form render as separate screens', async () 
   }
 })
 
+// 取得したタスク名・説明・担当者・期限日が初期値になり、担当者nullは「未割当」と表示することを確認する。
 test('the update form displays the task values returned by the API', async () => {
   const vite = await createServer({
     server: { middlewareMode: true, ws: false },
@@ -86,6 +88,7 @@ test('the update form displays the task values returned by the API', async () =>
   }
 })
 
+// 指定IDでGETし、200の現在値を返すことと、404時に取得エラーとなることを確認する。
 test('fetchTask retrieves the selected task and reports a missing task', async () => {
   const vite = await createServer({
     server: { middlewareMode: true, ws: false },
@@ -117,6 +120,61 @@ test('fetchTask retrieves the selected task and reports a missing task', async (
 
     globalThis.fetch = async () => new Response('', { status: 404 })
     await assert.rejects(fetchTask(404), /タスクを取得できませんでした。/)
+  } finally {
+    globalThis.fetch = originalFetch
+    await vite.close()
+  }
+})
+
+// 更新APIの200応答で完了メッセージ、失敗応答でエラーのみとなり、成功表示が出ないことを確認する。
+test('task update feedback reports success only when the update API succeeds', async () => {
+  const vite = await createServer({
+    server: { middlewareMode: true, ws: false },
+  })
+  const originalFetch = globalThis.fetch
+
+  try {
+    const { submitTaskUpdate } = await vite.ssrLoadModule(
+      '/src/features/tasks/updateFeedback.ts',
+    )
+    const { TaskUpdateFeedback } = await vite.ssrLoadModule(
+      '/src/features/tasks/TaskUpdatePage.tsx',
+    )
+    const task = {
+      taskName: 'Updated task',
+      description: 'Updated description',
+      assigneeName: 'Participant',
+      dueDate: '2026-12-01',
+    }
+
+    globalThis.fetch = async () =>
+      new Response(JSON.stringify({ ...task, taskId: 42 }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      })
+    const successFeedback = await submitTaskUpdate(42, task)
+    const successMarkup = renderToStaticMarkup(
+      createElement(TaskUpdateFeedback, successFeedback),
+    )
+    assert.deepEqual(successFeedback, {
+      message: 'タスクを更新しました。',
+      error: '',
+    })
+    assert.match(successMarkup, /<p role="status">タスクを更新しました。<\/p>/)
+    assert.doesNotMatch(successMarkup, /role="alert"/)
+
+    globalThis.fetch = async () =>
+      new Response('更新に失敗しました。', { status: 500 })
+    const failureFeedback = await submitTaskUpdate(42, task)
+    const failureMarkup = renderToStaticMarkup(
+      createElement(TaskUpdateFeedback, failureFeedback),
+    )
+    assert.deepEqual(failureFeedback, {
+      message: '',
+      error: '更新に失敗しました。',
+    })
+    assert.match(failureMarkup, /<p role="alert">更新に失敗しました。<\/p>/)
+    assert.doesNotMatch(failureMarkup, /role="status"/)
   } finally {
     globalThis.fetch = originalFetch
     await vite.close()
