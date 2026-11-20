@@ -44,6 +44,13 @@ public class TaskEntity {
 		this.dueDate = dueDate;
 	}
 
+	void update(String taskName, String description, String assigneeName, LocalDate dueDate) {
+		this.taskName = taskName;
+		this.description = description;
+		this.assigneeName = assigneeName;
+		this.dueDate = dueDate;
+	}
+
 	public Long getTaskId() {
 		return taskId;
 	}

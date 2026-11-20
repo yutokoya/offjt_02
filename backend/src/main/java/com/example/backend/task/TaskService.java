@@ -1,13 +1,15 @@
 package com.example.backend.task;
 
 import java.time.LocalDate;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
- * タスクの登録と一覧取得を行うサービスです。
+ * タスクの登録、一覧取得、個別取得、更新を行うサービスです。
  */
 @Service
 public class TaskService {
@@ -37,8 +39,9 @@ public class TaskService {
 	 */
 	@Transactional
 	public TaskListResponse.TaskSummary registerTask(TaskRegistrationRequest request) {
+		String taskName = validateRegistration(request);
 		TaskEntity task = new TaskEntity(
-				request.taskName(),
+				taskName,
 				request.description(),
 				request.assigneeName(),
 				LocalDate.parse(request.dueDate()));
@@ -58,6 +61,22 @@ public class TaskService {
 				.map(this::toSummary)
 				.toList();
 		return new TaskListResponse(items);
+	}
+
+	private String validateRegistration(TaskRegistrationRequest request) {
+		Map<String, String> fieldErrors = new LinkedHashMap<>();
+		String taskName = request.taskName();
+		String dueDate = request.dueDate();
+		if (taskName == null || taskName.isBlank()) {
+			fieldErrors.put("taskName", "タスク名は必須です。");
+		}
+		if (dueDate == null || dueDate.isBlank()) {
+			fieldErrors.put("dueDate", "期限日は必須です。");
+		}
+		if (!fieldErrors.isEmpty()) {
+			throw new TaskValidationException(fieldErrors);
+		}
+		return taskName.strip();
 	}
 
 	/**
@@ -90,6 +109,26 @@ public class TaskService {
 		taskDependencyRepository.deleteConnectedToTask(taskId);
 		task.get().markDeleted();
 		return true;
+  }
+  
+  /**
+	 * 指定されたタスクの編集可能な項目を更新します。
+	 *
+	 * @param taskId 更新対象のタスクID
+	 * @param request 更新するタスク情報
+	 * @return 更新後のタスク。対象が存在しない場合は空
+	 */
+	@Transactional
+	public Optional<TaskListResponse.TaskSummary> updateTask(Long taskId, TaskUpdateRequest request) {
+		return taskRepository.findById(taskId)
+				.map(task -> {
+					task.update(
+							request.taskName(),
+							request.description() == null ? "" : request.description(),
+							request.assigneeName(),
+							LocalDate.parse(request.dueDate()));
+					return toSummary(task);
+				});
 	}
 
 	private TaskListResponse.TaskSummary toSummary(TaskEntity task) {
@@ -99,5 +138,19 @@ public class TaskService {
 				task.getDescription(),
 				task.getAssigneeName(),
 				task.getDueDate().toString());
+	}
+
+	static final class TaskValidationException extends RuntimeException {
+
+		private final Map<String, String> fieldErrors;
+
+		TaskValidationException(Map<String, String> fieldErrors) {
+			super("入力内容を確認してください。");
+			this.fieldErrors = Map.copyOf(fieldErrors);
+		}
+
+		Map<String, String> fieldErrors() {
+			return fieldErrors;
+		}
 	}
 }
