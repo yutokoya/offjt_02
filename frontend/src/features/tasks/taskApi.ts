@@ -129,7 +129,10 @@ export async function registerTask(
     headers: {
       'Content-Type': 'application/json',
     },
-    body: JSON.stringify(task),
+    body: JSON.stringify({
+      ...task,
+      assigneeName: task.assigneeName || null,
+    }),
   })
 
   if (!response.ok) {

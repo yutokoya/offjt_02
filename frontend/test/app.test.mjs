@@ -47,6 +47,44 @@ test('the task list and registration form render as separate screens', async () 
   }
 })
 
+// 一覧では入力された担当者名を表示し、担当者がないタスクは未割当と表示する。
+test('the task list displays an assignee or the unassigned label', async () => {
+  const vite = await createServer({
+    server: { middlewareMode: true, ws: false },
+  })
+
+  try {
+    const { TaskList } = await vite.ssrLoadModule('/src/App.tsx')
+    const markup = renderToStaticMarkup(
+      createElement(TaskList, {
+        tasks: [
+          {
+            taskId: 1,
+            taskName: 'Assigned task',
+            description: '',
+            assigneeName: 'Participant',
+            dueDate: '2026-12-01',
+          },
+          {
+            taskId: 2,
+            taskName: 'Unassigned task',
+            description: '',
+            assigneeName: null,
+            dueDate: '2026-12-02',
+          },
+        ],
+        onEdit: () => {},
+        onDelete: () => {},
+      }),
+    )
+
+    assert.match(markup, /担当者: Participant/)
+    assert.match(markup, /担当者: 未割当/)
+  } finally {
+    await vite.close()
+  }
+})
+
 // 取得したタスク名・説明・担当者・期限日が初期値になり、担当者nullは「未割当」と表示することを確認する。
 test('the update form displays the task values returned by the API', async () => {
   const vite = await createServer({
@@ -462,20 +500,37 @@ test('registration success shows a status and API failure shows an alert', async
       assigneeName: '',
       dueDate: '2026-12-01',
     }
-    const registeredTask = { ...task, taskId: 42 }
+    const registeredTask = { ...task, assigneeName: null, taskId: 42 }
+    let postedTask
 
-    globalThis.fetch = async () =>
-      new Response(JSON.stringify(registeredTask), {
+    globalThis.fetch = async (_url, init) => {
+      postedTask = JSON.parse(init.body)
+      return new Response(JSON.stringify(registeredTask), {
         status: 201,
         headers: { 'Content-Type': 'application/json' },
       })
+    }
     const successSubmission = await submitTaskRegistration(task)
     const successMarkup = renderToStaticMarkup(
       createElement(TaskRegistrationFeedback, successSubmission.feedback),
     )
     assert.deepEqual(successSubmission.task, registeredTask)
+    assert.deepEqual(postedTask, { ...task, assigneeName: null })
     assert.match(successMarkup, /<p role="status">タスクを登録しました。<\/p>/)
     assert.doesNotMatch(successMarkup, /role="alert"/)
+
+    globalThis.fetch = async (_url, init) => {
+      postedTask = JSON.parse(init.body)
+      return new Response(
+        JSON.stringify({ ...registeredTask, assigneeName: 'Participant' }),
+        {
+          status: 201,
+          headers: { 'Content-Type': 'application/json' },
+        },
+      )
+    }
+    await submitTaskRegistration({ ...task, assigneeName: 'Participant' })
+    assert.equal(postedTask.assigneeName, 'Participant')
 
     globalThis.fetch = async () =>
       new Response('タスク登録の業務処理はこれから実装します。', {
