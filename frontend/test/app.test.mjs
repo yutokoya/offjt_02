@@ -287,6 +287,7 @@ test('registration success shows a status and API failure shows an alert', async
           message: '入力内容を確認してください。',
           fieldErrors: {
             taskName: 'タスク名は必須です。',
+            description: '説明は200文字以内で入力してください。',
             dueDate: '期限日は必須です。',
           },
         }),
@@ -299,6 +300,10 @@ test('registration success shows a status and API failure shows an alert', async
     assert.equal(validationSubmission.task, null)
     assert.equal(validationSubmission.feedback.message, '')
     assert.match(validationMarkup, /id="taskName-error">タスク名は必須です。/)
+    assert.match(
+      validationMarkup,
+      /id="description-error">説明は200文字以内で入力してください。/,
+    )
     assert.match(validationMarkup, /id="dueDate-error">期限日は必須です。/)
   } finally {
     globalThis.fetch = originalFetch
@@ -353,6 +358,63 @@ test('registration validates task name length by trimmed Unicode code points', a
     assert.equal(
       invalidSubmission.feedback.fieldErrors.taskName,
       'タスク名は100文字以内で入力してください。',
+    )
+    assert.equal(requestCount, 1)
+  } finally {
+    globalThis.fetch = originalFetch
+    await vite.close()
+  }
+})
+
+// 説明は前後空白を除去せず、200コードポイントは登録し201コードポイントは送信前に拒否することを確認する。
+test('registration validates description length by Unicode code points', async () => {
+  const vite = await createServer({
+    server: { middlewareMode: true, ws: false },
+  })
+  const originalFetch = globalThis.fetch
+  let requestCount = 0
+  let submittedDescription
+
+  try {
+    const { submitTaskRegistration } = await vite.ssrLoadModule(
+      '/src/features/tasks/registrationFeedback.ts',
+    )
+    globalThis.fetch = async (_url, init) => {
+      requestCount += 1
+      submittedDescription = JSON.parse(init.body).description
+      return new Response(
+        JSON.stringify({
+          taskId: 42,
+          taskName: 'Description boundary',
+          description: submittedDescription,
+          assigneeName: null,
+          dueDate: '2026-11-19',
+        }),
+        { status: 201, headers: { 'Content-Type': 'application/json' } },
+      )
+    }
+
+    const validDescription = ` ${'a'.repeat(197)}😀😀`
+    const validSubmission = await submitTaskRegistration({
+      taskName: 'Description boundary',
+      description: validDescription,
+      assigneeName: '',
+      dueDate: '2026-11-19',
+    })
+    assert.equal(validSubmission.task?.description, validDescription)
+    assert.equal(submittedDescription, validDescription)
+    assert.equal(requestCount, 1)
+
+    const invalidSubmission = await submitTaskRegistration({
+      taskName: 'Description over limit',
+      description: 'a'.repeat(199) + '😀😀',
+      assigneeName: '',
+      dueDate: '2026-11-19',
+    })
+    assert.equal(invalidSubmission.task, null)
+    assert.equal(
+      invalidSubmission.feedback.fieldErrors.description,
+      '説明は200文字以内で入力してください。',
     )
     assert.equal(requestCount, 1)
   } finally {
