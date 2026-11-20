@@ -1,7 +1,8 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import { createElement } from 'react'
+import { act, createElement } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
+import { JSDOM } from 'jsdom'
 import { createServer } from 'vite'
 
 // 一覧・登録・更新が別画面として描画され、更新画面では取得中表示が出ることを確認する。
@@ -800,6 +801,137 @@ test('a registered task appears in the list after it is fetched again', async ()
     ])
   } finally {
     globalThis.fetch = originalFetch
+    await vite.close()
+  }
+})
+
+// Appを削除後に再マウントし、APIから再取得した一覧にも削除済みTaskが表示されないことを確認する。
+test('a deleted task stays hidden after reloading the app', async () => {
+  const vite = await createServer({
+    server: { middlewareMode: true, ws: false },
+  })
+  const originalFetch = globalThis.fetch
+  const dom = new JSDOM('<div id="root"></div>', {
+    url: 'http://localhost',
+  })
+  const originalGlobals = new Map()
+  const domGlobals = {
+    window: dom.window,
+    document: dom.window.document,
+    navigator: dom.window.navigator,
+    HTMLElement: dom.window.HTMLElement,
+    MouseEvent: dom.window.MouseEvent,
+    Node: dom.window.Node,
+    IS_REACT_ACT_ENVIRONMENT: true,
+  }
+  for (const [name, value] of Object.entries(domGlobals)) {
+    originalGlobals.set(name, Object.getOwnPropertyDescriptor(globalThis, name))
+    Object.defineProperty(globalThis, name, {
+      configurable: true,
+      writable: true,
+      value,
+    })
+  }
+  const deletedTask = {
+    taskId: 42,
+    taskName: 'Deleted task',
+    description: '',
+    assigneeName: null,
+    dueDate: '2026-12-01',
+  }
+  const activeTask = {
+    ...deletedTask,
+    taskId: 43,
+    taskName: 'Active task',
+  }
+  const storedTasks = [deletedTask, activeTask]
+  const deletedTaskIds = new Set()
+  let listRequestCount = 0
+  let deleteRequestCount = 0
+  let root
+
+  try {
+    const [{ default: App }, { createRoot }] = await Promise.all([
+      vite.ssrLoadModule('/src/App.tsx'),
+      import('react-dom/client'),
+    ])
+    const container = dom.window.document.getElementById('root')
+    assert.ok(container)
+    dom.window.confirm = () => true
+    globalThis.fetch = async (url, init) => {
+      if (init?.method === 'DELETE') {
+        deleteRequestCount += 1
+        deletedTaskIds.add(Number(url.substring('/api/tasks/'.length)))
+        return new Response(null, { status: 204 })
+      }
+
+      assert.equal(url, '/api/tasks')
+      listRequestCount += 1
+      return new Response(
+        JSON.stringify({
+          items: storedTasks.filter((task) => !deletedTaskIds.has(task.taskId)),
+        }),
+        { status: 200, headers: { 'Content-Type': 'application/json' } },
+      )
+    }
+
+    root = createRoot(container)
+    await act(async () => {
+      root.render(createElement(App))
+      await new Promise((resolve) => setTimeout(resolve, 0))
+    })
+    assert.match(container.textContent, /Deleted task/)
+    assert.match(container.textContent, /Active task/)
+
+    const deletedTaskRow = Array.from(container.querySelectorAll('li')).find(
+      (item) => item.textContent.includes(deletedTask.taskName),
+    )
+    assert.ok(deletedTaskRow)
+    const deleteButton = deletedTaskRow.querySelectorAll('button')[1]
+    assert.ok(deleteButton)
+    await act(async () => {
+      deleteButton.dispatchEvent(
+        new dom.window.MouseEvent('click', { bubbles: true }),
+      )
+      await new Promise((resolve) => setTimeout(resolve, 0))
+    })
+
+    assert.equal(deleteRequestCount, 1)
+    assert.doesNotMatch(container.textContent, /Deleted task/)
+    assert.match(container.textContent, /Active task/)
+
+    await act(async () => {
+      root.unmount()
+    })
+    root = createRoot(container)
+    await act(async () => {
+      root.render(createElement(App))
+      await new Promise((resolve) => setTimeout(resolve, 0))
+    })
+
+    assert.equal(listRequestCount, 2)
+    assert.doesNotMatch(container.textContent, /Deleted task/)
+    assert.match(container.textContent, /Active task/)
+    assert.equal(
+      container.querySelectorAll('li').length,
+      1,
+      'the reloaded list should contain only the remaining task',
+    )
+  } finally {
+    if (root) {
+      await act(async () => {
+        root.unmount()
+      })
+    }
+    globalThis.fetch = originalFetch
+    for (const [name, descriptor] of originalGlobals) {
+      if (descriptor) {
+        Object.defineProperty(globalThis, name, descriptor)
+      } else {
+        Reflect.deleteProperty(globalThis, name)
+      }
+    }
+    dom.window.close()
     await vite.close()
   }
 })
