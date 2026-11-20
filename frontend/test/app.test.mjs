@@ -512,6 +512,61 @@ test('registration validates description length by Unicode code points', async (
   }
 })
 
+// 日付形式と暦日を検証し、過去の実在日は許可し、不正な値はAPI送信前に拒否する。
+test('registration validates due date format and calendar date', async () => {
+  const vite = await createServer({
+    server: { middlewareMode: true, ws: false },
+  })
+  const originalFetch = globalThis.fetch
+  let requestCount = 0
+
+  try {
+    const { submitTaskRegistration } = await vite.ssrLoadModule(
+      '/src/features/tasks/registrationFeedback.ts',
+    )
+    globalThis.fetch = async () => {
+      requestCount += 1
+      return new Response(
+        JSON.stringify({
+          taskId: 42,
+          taskName: 'Past date task',
+          description: '',
+          assigneeName: null,
+          dueDate: '1900-02-28',
+        }),
+        { status: 201, headers: { 'Content-Type': 'application/json' } },
+      )
+    }
+
+    for (const dueDate of ['2026-2-01', '2026-02-30']) {
+      const invalidSubmission = await submitTaskRegistration({
+        taskName: 'Invalid date task',
+        description: '',
+        assigneeName: '',
+        dueDate,
+      })
+      assert.equal(invalidSubmission.task, null)
+      assert.equal(
+        invalidSubmission.feedback.fieldErrors.dueDate,
+        '期限日はYYYY-MM-DD形式の実在する日付を入力してください。',
+      )
+    }
+    assert.equal(requestCount, 0)
+
+    const pastDateSubmission = await submitTaskRegistration({
+      taskName: 'Past date task',
+      description: '',
+      assigneeName: '',
+      dueDate: '1900-02-28',
+    })
+    assert.equal(pastDateSubmission.task?.dueDate, '1900-02-28')
+    assert.equal(requestCount, 1)
+  } finally {
+    globalThis.fetch = originalFetch
+    await vite.close()
+  }
+})
+
 // 登録APIの応答と一覧再取得の両方に、新しいタスクが反映されることを確認する。
 test('a registered task appears in the list after it is fetched again', async () => {
   const vite = await createServer({

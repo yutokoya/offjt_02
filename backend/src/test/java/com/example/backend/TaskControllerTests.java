@@ -327,6 +327,49 @@ class TaskControllerTests {
 		assertThat(taskRepository.count()).isEqualTo(taskCountAfterValidRegistration);
 	}
 
+	/**
+	 * 不正な期限日の形式と実在しない日付を拒否し、過去の実在日は登録できることを確認する。
+	 */
+	@Test
+	@Transactional
+	void dueDateValidationRejectsInvalidDatesAndAllowsPastDates() throws Exception {
+		long taskCountBeforeInvalidRequests = taskRepository.count();
+		String invalidDateMessage = "期限日はYYYY-MM-DD形式の実在する日付を入力してください。";
+
+		assertValidationError(
+				"""
+				{
+				  "taskName": "Invalid date format",
+				  "dueDate": "2026-2-01"
+				}
+				""",
+				"dueDate",
+				invalidDateMessage);
+		assertValidationError(
+				"""
+				{
+				  "taskName": "Nonexistent date",
+				  "dueDate": "2026-02-30"
+				}
+				""",
+				"dueDate",
+				invalidDateMessage);
+		assertThat(taskRepository.count()).isEqualTo(taskCountBeforeInvalidRequests);
+
+		mockMvc.perform(post("/api/tasks")
+						.contentType(MediaType.APPLICATION_JSON)
+						.content("""
+								{
+								  "taskName": "Valid past date",
+								  "dueDate": "1900-02-28"
+								}
+								"""))
+				.andExpect(status().isCreated())
+				.andExpect(jsonPath("$.dueDate").value("1900-02-28"));
+
+		assertThat(taskRepository.count()).isEqualTo(taskCountBeforeInvalidRequests + 1);
+	}
+
 	private void assertValidationError(
 			String requestBody,
 			String field,
