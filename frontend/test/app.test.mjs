@@ -573,6 +573,7 @@ test('a registered task appears in the list after it is fetched again', async ()
   }
 })
 
+// 削除確認が対象タスク名を示し、確定とキャンセルの選択結果を返すことを確認する。
 test('task deletion confirmation identifies the task and supports confirmation or cancellation', async () => {
   const vite = await createServer({
     server: { middlewareMode: true, ws: false },
@@ -611,6 +612,7 @@ test('task deletion confirmation identifies the task and supports confirmation o
   }
 })
 
+// DELETEが204なら完了表示し、失敗応答では成功表示を出さずエラーを表示することを確認する。
 test('task deletion shows success after a 204 response and an error after failure', async () => {
   const vite = await createServer({
     server: { middlewareMode: true, ws: false },
