@@ -132,11 +132,11 @@ public class TaskService {
 	 */
 	@Transactional
 	public Optional<TaskListResponse.TaskSummary> updateTask(Long taskId, TaskUpdateRequest request) {
-		validateUpdateRequiredFields(request);
+		String normalizedTaskName = validateUpdateFields(request);
 		return taskRepository.findById(taskId)
 				.map(task -> {
 					task.update(
-							request.taskName(),
+							normalizedTaskName,
 							request.description() == null ? "" : request.description(),
 							request.assigneeName(),
 							LocalDate.parse(request.dueDate()));
@@ -144,10 +144,15 @@ public class TaskService {
 				});
 	}
 
-	private void validateUpdateRequiredFields(TaskUpdateRequest request) {
+	private String validateUpdateFields(TaskUpdateRequest request) {
 		Map<String, String> fieldErrors = new LinkedHashMap<>();
-		if (request.taskName() == null || request.taskName().isBlank()) {
+		String taskName = request.taskName();
+		String normalizedTaskName = taskName == null ? null : taskName.strip();
+		if (taskName == null || taskName.isBlank()) {
 			fieldErrors.put("taskName", "タスク名は必須です。");
+		} else if (normalizedTaskName.codePointCount(0, normalizedTaskName.length())
+				> MAX_TASK_NAME_CODE_POINTS) {
+			fieldErrors.put("taskName", "タスク名は100文字以内で入力してください。");
 		}
 		if (request.dueDate() == null || request.dueDate().isBlank()) {
 			fieldErrors.put("dueDate", "期限日は必須です。");
@@ -155,6 +160,7 @@ public class TaskService {
 		if (!fieldErrors.isEmpty()) {
 			throw new TaskValidationException(fieldErrors);
 		}
+		return normalizedTaskName;
 	}
 
 	private TaskListResponse.TaskSummary toSummary(TaskEntity task) {

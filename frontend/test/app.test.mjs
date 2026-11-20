@@ -280,6 +280,59 @@ test('task update required fields are validated before and after the API request
   }
 })
 
+// 前後のUnicode空白除去後に100コードポイントは送信し、サロゲートペアを含め101コードポイントは送信前に拒否する。
+test('task update validates task name length by trimmed Unicode code points', async () => {
+  const vite = await createServer({
+    server: { middlewareMode: true, ws: false },
+  })
+  const originalFetch = globalThis.fetch
+  let requestCount = 0
+
+  try {
+    const { submitTaskUpdate } = await vite.ssrLoadModule(
+      '/src/features/tasks/updateFeedback.ts',
+    )
+    globalThis.fetch = async () => {
+      requestCount += 1
+      return new Response(
+        JSON.stringify({
+          taskId: 42,
+          taskName: 'a'.repeat(98) + '😀😀',
+          description: '',
+          assigneeName: null,
+          dueDate: '2026-11-20',
+        }),
+        { status: 200, headers: { 'Content-Type': 'application/json' } },
+      )
+    }
+
+    const validSubmission = await submitTaskUpdate(42, {
+      taskName: `\u3000${'a'.repeat(98)}😀😀\u3000`,
+      description: '',
+      assigneeName: null,
+      dueDate: '2026-11-20',
+    })
+    assert.equal(validSubmission.task?.taskName, 'a'.repeat(98) + '😀😀')
+    assert.equal(requestCount, 1)
+
+    const invalidSubmission = await submitTaskUpdate(42, {
+      taskName: `\u3000${'a'.repeat(99)}😀😀\u3000`,
+      description: '',
+      assigneeName: null,
+      dueDate: '2026-11-20',
+    })
+    assert.equal(invalidSubmission.task, null)
+    assert.equal(
+      invalidSubmission.feedback.fieldErrors.taskName,
+      'タスク名は100文字以内で入力してください。',
+    )
+    assert.equal(requestCount, 1)
+  } finally {
+    globalThis.fetch = originalFetch
+    await vite.close()
+  }
+})
+
 // 更新APIが返した最新Taskで同じIDの一覧項目だけが置き換わり、他の項目は保持されることを確認する。
 test('an updated task replaces only the matching task in the list', async () => {
   const vite = await createServer({
