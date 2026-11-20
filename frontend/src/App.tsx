@@ -1,8 +1,10 @@
 import { useEffect, useState } from 'react'
 import { TaskRegistrationPage } from './features/tasks/TaskRegistrationPage'
 import { TaskUpdatePage } from './features/tasks/TaskUpdatePage'
+import { TaskDeletionFeedback } from './features/tasks/TaskDeletionFeedback'
+import { submitTaskDeletion } from './features/tasks/deletionFeedback'
 import type { TaskRegistrationFeedbackState } from './features/tasks/registrationFeedback'
-import { deleteTask, fetchTasks } from './features/tasks/taskApi'
+import { fetchTasks } from './features/tasks/taskApi'
 import type { TaskSummary } from './features/tasks/taskApi'
 import {
   appendRegisteredTask,
@@ -47,17 +49,12 @@ function App() {
     setMessage('')
     setError('')
 
-    try {
-      await deleteTask(task.taskId)
+    const feedback = await submitTaskDeletion(task.taskId)
+    setMessage(feedback.message)
+    setError(feedback.error)
+    if (feedback.deleted) {
       setTasks((current) =>
         current.filter((item) => item.taskId !== task.taskId),
-      )
-      setMessage('タスクを削除しました。')
-    } catch (cause: unknown) {
-      setError(
-        cause instanceof Error
-          ? cause.message
-          : 'タスクを削除できませんでした。',
       )
     }
   }
@@ -109,8 +106,7 @@ function App() {
           >
             タスク登録
           </button>
-          {message && <p role="status">{message}</p>}
-          {error && <p role="alert">{error}</p>}
+          <TaskDeletionFeedback message={message} error={error} />
           {tasks.length === 0 ? (
             <p>タスクはありません。</p>
           ) : (

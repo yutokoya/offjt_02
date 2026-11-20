@@ -681,6 +681,7 @@ test('a registered task appears in the list after it is fetched again', async ()
   }
 })
 
+// 削除確認が対象タスク名を示し、確定とキャンセルの選択結果を返すことを確認する。
 test('task deletion confirmation identifies the task and supports confirmation or cancellation', async () => {
   const vite = await createServer({
     server: { middlewareMode: true, ws: false },
@@ -715,6 +716,66 @@ test('task deletion confirmation identifies the task and supports confirmation o
       'タスク「不要なタスク」を削除しますか？',
     ])
   } finally {
+    await vite.close()
+  }
+})
+
+// DELETEが204なら完了表示し、失敗応答では成功表示を出さずエラーを表示することを確認する。
+test('task deletion shows success after a 204 response and an error after failure', async () => {
+  const vite = await createServer({
+    server: { middlewareMode: true, ws: false },
+  })
+  const originalFetch = globalThis.fetch
+
+  try {
+    const { submitTaskDeletion } = await vite.ssrLoadModule(
+      '/src/features/tasks/deletionFeedback.ts',
+    )
+    const { TaskDeletionFeedback } = await vite.ssrLoadModule(
+      '/src/features/tasks/TaskDeletionFeedback.tsx',
+    )
+    let requestedUrl
+    let requestedMethod
+    globalThis.fetch = async (url, init) => {
+      requestedUrl = url
+      requestedMethod = init?.method
+      return new Response(null, { status: 204 })
+    }
+
+    const success = await submitTaskDeletion(42)
+    const successMarkup = renderToStaticMarkup(
+      createElement(TaskDeletionFeedback, success),
+    )
+
+    assert.equal(requestedUrl, '/api/tasks/42')
+    assert.equal(requestedMethod, 'DELETE')
+    assert.deepEqual(success, {
+      message: 'タスクを削除しました。',
+      error: '',
+      deleted: true,
+    })
+    assert.match(successMarkup, /<p role="status">タスクを削除しました。<\/p>/)
+    assert.doesNotMatch(successMarkup, /role="alert"/)
+
+    globalThis.fetch = async () =>
+      new Response('タスク削除に失敗しました。', { status: 500 })
+    const failure = await submitTaskDeletion(42)
+    const failureMarkup = renderToStaticMarkup(
+      createElement(TaskDeletionFeedback, failure),
+    )
+
+    assert.deepEqual(failure, {
+      message: '',
+      error: 'タスク削除に失敗しました。',
+      deleted: false,
+    })
+    assert.match(
+      failureMarkup,
+      /<p role="alert">タスク削除に失敗しました。<\/p>/,
+    )
+    assert.doesNotMatch(failureMarkup, /role="status"/)
+  } finally {
+    globalThis.fetch = originalFetch
     await vite.close()
   }
 })
