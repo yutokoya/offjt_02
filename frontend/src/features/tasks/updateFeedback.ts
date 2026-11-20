@@ -2,6 +2,7 @@ import { updateTask } from './taskApi'
 import { TaskApiError } from './taskApi'
 import type { TaskFieldErrors, TaskSummary, TaskUpdate } from './taskApi'
 import {
+  validateDueDate,
   validateTaskDescriptionLength,
   validateTaskNameLength,
 } from './registrationFeedback'
@@ -44,6 +45,11 @@ export async function submitTaskUpdate(
   }
   if (!task.dueDate.trim()) {
     fieldErrors.dueDate = '期限日は必須です。'
+  } else {
+    const dueDateError = validateDueDate(task.dueDate)
+    if (dueDateError) {
+      fieldErrors.dueDate = dueDateError
+    }
   }
   if (Object.keys(fieldErrors).length > 0) {
     return {
