@@ -250,6 +250,46 @@ class TaskControllerTests {
 				.isEqualTo(existingTaskName);
 	}
 
+	/**
+	 * タスク名をUnicodeコードポイント数で判定し、100文字を受け付け101文字を拒否することを確認する。
+	 */
+	@Test
+	@Transactional
+	void taskNameLengthUsesUnicodeCodePointsAndRejectsOverLimit() throws Exception {
+		String validTaskName = "a".repeat(98) + "\uD83D\uDE00".repeat(2);
+		String paddedTaskName = "\u3000" + validTaskName + "\u3000";
+		MvcResult createdResult = mockMvc.perform(post("/api/tasks")
+						.contentType(MediaType.APPLICATION_JSON)
+						.content("""
+								{
+								  "taskName": "%s",
+								  "dueDate": "2026-11-19"
+								}
+								""".formatted(paddedTaskName)))
+				.andExpect(status().isCreated())
+				.andExpect(jsonPath("$.taskName").value(validTaskName))
+				.andReturn();
+		String location = createdResult.getResponse().getHeader("Location");
+		assertThat(location).isNotNull();
+		long taskCountAfterValidRegistration = taskRepository.count();
+		String invalidTaskName = "a".repeat(99) + "\uD83D\uDE00".repeat(2);
+
+		mockMvc.perform(post("/api/tasks")
+						.contentType(MediaType.APPLICATION_JSON)
+						.content("""
+								{
+								  "taskName": "%s",
+								  "dueDate": "2026-11-19"
+								}
+								""".formatted(invalidTaskName)))
+				.andExpect(status().isBadRequest())
+				.andExpect(jsonPath("$.code").value("VALIDATION_ERROR"))
+				.andExpect(jsonPath("$.fieldErrors.taskName")
+						.value("タスク名は100文字以内で入力してください。"));
+
+		assertThat(taskRepository.count()).isEqualTo(taskCountAfterValidRegistration);
+	}
+
 	private void assertValidationError(
 			String requestBody,
 			String field,

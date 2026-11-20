@@ -232,6 +232,7 @@ test('an updated task replaces only the matching task in the list', async () => 
   }
 })
 
+// 登録成功では完了メッセージを表示し、API失敗・必須項目エラーでは成功扱いにしないことを確認する。
 test('registration success shows a status and API failure shows an alert', async () => {
   const vite = await createServer({
     server: { middlewareMode: true, ws: false },
@@ -305,6 +306,62 @@ test('registration success shows a status and API failure shows an alert', async
   }
 })
 
+// 前後空白除去後の名前をUnicodeコードポイント数で判定し、100文字は受け付け101文字は送信前に拒否することを確認する。
+test('registration validates task name length by trimmed Unicode code points', async () => {
+  const vite = await createServer({
+    server: { middlewareMode: true, ws: false },
+  })
+  const originalFetch = globalThis.fetch
+  let requestCount = 0
+
+  try {
+    const { submitTaskRegistration } = await vite.ssrLoadModule(
+      '/src/features/tasks/registrationFeedback.ts',
+    )
+    globalThis.fetch = async () => {
+      requestCount += 1
+      return new Response(
+        JSON.stringify({
+          taskId: 42,
+          taskName: 'a'.repeat(98) + '😀😀',
+          description: '',
+          assigneeName: null,
+          dueDate: '2026-11-19',
+        }),
+        { status: 201, headers: { 'Content-Type': 'application/json' } },
+      )
+    }
+
+    // 😀はUTF-16では2単位だがコードポイントでは1文字。全角空白を除くと98 + 2で100文字になる。
+    const validSubmission = await submitTaskRegistration({
+      taskName: `\u3000${'a'.repeat(98)}😀😀\u3000`,
+      description: '',
+      assigneeName: '',
+      dueDate: '2026-11-19',
+    })
+    assert.equal(validSubmission.task?.taskName, 'a'.repeat(98) + '😀😀')
+    assert.equal(requestCount, 1)
+
+    // 99 + 2で101コードポイントとなるため、APIを呼び出す前に拒否される。
+    const invalidSubmission = await submitTaskRegistration({
+      taskName: 'a'.repeat(99) + '😀😀',
+      description: '',
+      assigneeName: '',
+      dueDate: '2026-11-19',
+    })
+    assert.equal(invalidSubmission.task, null)
+    assert.equal(
+      invalidSubmission.feedback.fieldErrors.taskName,
+      'タスク名は100文字以内で入力してください。',
+    )
+    assert.equal(requestCount, 1)
+  } finally {
+    globalThis.fetch = originalFetch
+    await vite.close()
+  }
+})
+
+// 登録APIの応答と一覧再取得の両方に、新しいタスクが反映されることを確認する。
 test('a registered task appears in the list after it is fetched again', async () => {
   const vite = await createServer({
     server: { middlewareMode: true, ws: false },
