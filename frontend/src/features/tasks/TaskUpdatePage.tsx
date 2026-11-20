@@ -140,6 +140,9 @@ export function TaskUpdateFeedback({
       {fieldErrors.taskName && (
         <p id="taskName-error">{fieldErrors.taskName}</p>
       )}
+      {fieldErrors.description && (
+        <p id="description-error">{fieldErrors.description}</p>
+      )}
       {fieldErrors.dueDate && <p id="dueDate-error">{fieldErrors.dueDate}</p>}
     </>
   )
@@ -173,6 +176,10 @@ export function TaskUpdateForm({
         説明
         <textarea
           value={task.description}
+          aria-invalid={Boolean(fieldErrors.description)}
+          aria-describedby={
+            fieldErrors.description ? 'description-error' : undefined
+          }
           onChange={(event) => onChange('description', event.target.value)}
         />
       </label>

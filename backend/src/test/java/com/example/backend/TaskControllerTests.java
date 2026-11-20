@@ -551,6 +551,60 @@ class TaskControllerTests {
 	}
 
 	/**
+	 * 更新時の説明をUnicodeコードポイント数で判定し、200文字を受け付け201文字を拒否することを確認する。
+	 */
+	@Test
+	@Transactional
+	void descriptionLengthUsesUnicodeCodePointsWhenUpdating() throws Exception {
+		long targetTaskId = createTask("PR-07 target");
+		long otherTaskId = createTask("PR-07 other");
+		long taskCountBeforeUpdate = taskRepository.count();
+		String validDescription = "a".repeat(198) + "\uD83D\uDE00".repeat(2);
+
+		mockMvc.perform(put("/api/tasks/" + targetTaskId)
+						.contentType(MediaType.APPLICATION_JSON)
+						.content("""
+								{
+								  "taskName": "PR-07 target",
+								  "description": "%s",
+								  "assigneeName": null,
+								  "dueDate": "2026-12-01"
+								}
+								""".formatted(validDescription)))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.description").value(validDescription));
+
+		String invalidDescription = "a".repeat(199) + "\uD83D\uDE00".repeat(2);
+		mockMvc.perform(put("/api/tasks/" + targetTaskId)
+						.contentType(MediaType.APPLICATION_JSON)
+						.content("""
+								{
+								  "taskName": "PR-07 changed target",
+								  "description": "%s",
+								  "assigneeName": "Changed assignee",
+								  "dueDate": "2026-12-02"
+								}
+								""".formatted(invalidDescription)))
+				.andExpect(status().isBadRequest())
+				.andExpect(jsonPath("$.code").value("VALIDATION_ERROR"))
+				.andExpect(jsonPath("$.fieldErrors.description")
+						.value("説明は200文字以内で入力してください。"));
+
+		TaskEntity unchangedTarget = taskRepository.findById(targetTaskId).orElseThrow();
+		assertThat(unchangedTarget.getTaskName()).isEqualTo("PR-07 target");
+		assertThat(unchangedTarget.getDescription()).isEqualTo(validDescription);
+		assertThat(unchangedTarget.getAssigneeName()).isNull();
+		assertThat(unchangedTarget.getDueDate().toString()).isEqualTo("2026-12-01");
+
+		TaskEntity unchangedOther = taskRepository.findById(otherTaskId).orElseThrow();
+		assertThat(unchangedOther.getTaskName()).startsWith("PR-07 other ");
+		assertThat(unchangedOther.getDescription()).isEmpty();
+		assertThat(unchangedOther.getAssigneeName()).isNull();
+		assertThat(unchangedOther.getDueDate().toString()).isEqualTo("2026-11-19");
+		assertThat(taskRepository.count()).isEqualTo(taskCountBeforeUpdate);
+	}
+
+	/**
 	 * 担当者を省略した更新では未割当として保存することを確認する。
 	 */
 	@Test

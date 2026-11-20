@@ -169,6 +169,11 @@ public class TaskService {
 				> MAX_TASK_NAME_CODE_POINTS) {
 			fieldErrors.put("taskName", "タスク名は100文字以内で入力してください。");
 		}
+		String description = request.description();
+		if (description != null
+				&& description.codePointCount(0, description.length()) > MAX_DESCRIPTION_CODE_POINTS) {
+			fieldErrors.put("description", "説明は200文字以内で入力してください。");
+		}
 		if (request.dueDate() == null || request.dueDate().isBlank()) {
 			fieldErrors.put("dueDate", "期限日は必須です。");
 		}
