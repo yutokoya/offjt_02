@@ -936,6 +936,155 @@ test('a deleted task stays hidden after reloading the app', async () => {
   }
 })
 
+// キャンセルではDELETEを送らず、再マウント後もタスクと依存関係が維持されることを確認する。
+test('canceling task deletion leaves the task and related data unchanged', async () => {
+  const vite = await createServer({
+    server: { middlewareMode: true, ws: false },
+  })
+  const originalFetch = globalThis.fetch
+  const dom = new JSDOM('<div id="root"></div>', {
+    url: 'http://localhost',
+  })
+  const originalGlobals = new Map()
+  const domGlobals = {
+    window: dom.window,
+    document: dom.window.document,
+    navigator: dom.window.navigator,
+    HTMLElement: dom.window.HTMLElement,
+    MouseEvent: dom.window.MouseEvent,
+    Node: dom.window.Node,
+    IS_REACT_ACT_ENVIRONMENT: true,
+  }
+  for (const [name, value] of Object.entries(domGlobals)) {
+    originalGlobals.set(name, Object.getOwnPropertyDescriptor(globalThis, name))
+    Object.defineProperty(globalThis, name, {
+      configurable: true,
+      writable: true,
+      value,
+    })
+  }
+  const task = {
+    taskId: 42,
+    taskName: 'Task to keep',
+    description: 'Existing task description',
+    assigneeName: null,
+    dueDate: '2026-12-01',
+  }
+  const otherTask = {
+    ...task,
+    taskId: 43,
+    taskName: 'Related task',
+  }
+  const storedTasks = [task, otherTask]
+  const dependencies = [
+    { predecessorTaskId: task.taskId, successorTaskId: otherTask.taskId },
+  ]
+  const originalState = structuredClone({ storedTasks, dependencies })
+  let listRequestCount = 0
+  let deleteRequestCount = 0
+  let confirmationCount = 0
+  let root
+
+  try {
+    const [{ default: App }, { createRoot }] = await Promise.all([
+      vite.ssrLoadModule('/src/App.tsx'),
+      import('react-dom/client'),
+    ])
+    const container = dom.window.document.getElementById('root')
+    assert.ok(container)
+    dom.window.confirm = () => {
+      confirmationCount += 1
+      return false
+    }
+    globalThis.fetch = async (url, init) => {
+      if (init?.method === 'DELETE') {
+        deleteRequestCount += 1
+        const taskId = Number(url.substring('/api/tasks/'.length))
+        const taskIndex = storedTasks.findIndex(
+          (item) => item.taskId === taskId,
+        )
+        if (taskIndex >= 0) {
+          storedTasks.splice(taskIndex, 1)
+        }
+        for (let index = dependencies.length - 1; index >= 0; index -= 1) {
+          if (
+            dependencies[index].predecessorTaskId === taskId ||
+            dependencies[index].successorTaskId === taskId
+          ) {
+            dependencies.splice(index, 1)
+          }
+        }
+        return new Response(null, { status: 204 })
+      }
+
+      assert.equal(url, '/api/tasks')
+      listRequestCount += 1
+      return new Response(JSON.stringify({ items: storedTasks }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      })
+    }
+
+    root = createRoot(container)
+    await act(async () => {
+      root.render(createElement(App))
+      await new Promise((resolve) => setTimeout(resolve, 0))
+    })
+    const taskRow = Array.from(container.querySelectorAll('li')).find((item) =>
+      item.textContent.includes(task.taskName),
+    )
+    assert.ok(taskRow)
+    const deleteButton = taskRow.querySelectorAll('button')[1]
+    assert.ok(deleteButton)
+
+    await act(async () => {
+      deleteButton.dispatchEvent(
+        new dom.window.MouseEvent('click', { bubbles: true }),
+      )
+      await new Promise((resolve) => setTimeout(resolve, 0))
+    })
+
+    assert.equal(confirmationCount, 1)
+    assert.equal(deleteRequestCount, 0)
+    assert.equal(listRequestCount, 1)
+    assert.match(container.textContent, /Task to keep/)
+    assert.match(container.textContent, /Related task/)
+    assert.equal(container.querySelector('[role="status"]'), null)
+    assert.deepEqual({ storedTasks, dependencies }, originalState)
+
+    await act(async () => {
+      root.unmount()
+    })
+    root = createRoot(container)
+    await act(async () => {
+      root.render(createElement(App))
+      await new Promise((resolve) => setTimeout(resolve, 0))
+    })
+
+    assert.equal(deleteRequestCount, 0)
+    assert.equal(listRequestCount, 2)
+    assert.match(container.textContent, /Task to keep/)
+    assert.match(container.textContent, /Related task/)
+    assert.deepEqual({ storedTasks, dependencies }, originalState)
+  } finally {
+    if (root) {
+      await act(async () => {
+        root.unmount()
+      })
+    }
+    globalThis.fetch = originalFetch
+    for (const [name, descriptor] of originalGlobals) {
+      if (descriptor) {
+        Object.defineProperty(globalThis, name, descriptor)
+      } else {
+        Reflect.deleteProperty(globalThis, name)
+      }
+    }
+    dom.window.close()
+    await vite.close()
+  }
+})
+
 // 削除確認が対象タスク名を示し、確定とキャンセルの選択結果を返すことを確認する。
 test('task deletion confirmation identifies the task and supports confirmation or cancellation', async () => {
   const vite = await createServer({
