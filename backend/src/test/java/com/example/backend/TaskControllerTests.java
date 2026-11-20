@@ -486,4 +486,81 @@ class TaskControllerTests {
 				.andExpect(status().isOk())
 				.andExpect(jsonPath("$.assigneeName").doesNotExist());
 	}
+
+	/**
+	 * 更新の必須項目不足または空白のみのタスク名は400となり、対象・他タスクを変更しないことを確認する。
+	 */
+	@Test
+	@Transactional
+	void requiredUpdateFieldsReturnValidationErrorsWithoutChangingTasks() throws Exception {
+		long targetTaskId = createTask("PR-05 target");
+		long otherTaskId = createTask("PR-05 other");
+		TaskEntity originalTarget = taskRepository.findById(targetTaskId).orElseThrow();
+		String originalTargetName = originalTarget.getTaskName();
+		String originalTargetDescription = originalTarget.getDescription();
+		String originalTargetAssignee = originalTarget.getAssigneeName();
+		String originalTargetDueDate = originalTarget.getDueDate().toString();
+		TaskEntity originalOther = taskRepository.findById(otherTaskId).orElseThrow();
+		String originalOtherName = originalOther.getTaskName();
+		String originalOtherDescription = originalOther.getDescription();
+		String originalOtherAssignee = originalOther.getAssigneeName();
+		String originalOtherDueDate = originalOther.getDueDate().toString();
+		long taskCountBeforeInvalidUpdates = taskRepository.count();
+		String targetPath = "/api/tasks/" + targetTaskId;
+
+		assertUpdateValidationError(targetPath,
+				"""
+				{
+				  "dueDate": "2026-11-19"
+				}
+				""",
+				"taskName",
+				"タスク名は必須です。");
+		assertUpdateValidationError(targetPath,
+				"""
+				{
+				  "taskName": "　 ",
+				  "dueDate": "2026-11-19"
+				}
+				""",
+				"taskName",
+				"タスク名は必須です。");
+		assertUpdateValidationError(targetPath,
+				"""
+				{
+				  "taskName": "Changed task"
+				}
+				""",
+				"dueDate",
+				"期限日は必須です。");
+
+		assertThat(taskRepository.count()).isEqualTo(taskCountBeforeInvalidUpdates);
+		TaskEntity unchangedTarget = taskRepository.findById(targetTaskId).orElseThrow();
+		assertThat(unchangedTarget.getTaskName()).isEqualTo(originalTargetName);
+		assertThat(unchangedTarget.getDescription()).isEqualTo(originalTargetDescription);
+		assertThat(unchangedTarget.getAssigneeName()).isEqualTo(originalTargetAssignee);
+		assertThat(unchangedTarget.getDueDate().toString()).isEqualTo(originalTargetDueDate);
+
+		TaskEntity unchangedOther = taskRepository.findById(otherTaskId).orElseThrow();
+		assertThat(unchangedOther.getTaskName()).isEqualTo(originalOtherName);
+		assertThat(unchangedOther.getDescription()).isEqualTo(originalOtherDescription);
+		assertThat(unchangedOther.getAssigneeName()).isEqualTo(originalOtherAssignee);
+		assertThat(unchangedOther.getDueDate().toString()).isEqualTo(originalOtherDueDate);
+	}
+
+	private void assertUpdateValidationError(
+			String taskPath,
+			String requestBody,
+			String field,
+			String expectedFieldMessage) throws Exception {
+		mockMvc.perform(put(taskPath)
+						.contentType(MediaType.APPLICATION_JSON)
+						.content(requestBody))
+				.andExpect(status().isBadRequest())
+				.andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_JSON))
+				.andExpect(jsonPath("$.code").value("VALIDATION_ERROR"))
+				.andExpect(jsonPath("$.message").value("入力内容を確認してください。"))
+				.andExpect(jsonPath("$.fieldErrors." + field).value(expectedFieldMessage));
+	}
+
 }

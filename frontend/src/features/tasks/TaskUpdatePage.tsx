@@ -32,6 +32,7 @@ export function TaskUpdatePage({
   const [feedback, setFeedback] = useState<TaskUpdateFeedbackState>({
     message: '',
     error: '',
+    fieldErrors: {},
   })
   const currentLoad =
     loadedTask.taskId === taskId
@@ -75,7 +76,7 @@ export function TaskUpdatePage({
 
   const submit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
-    setFeedback({ message: '', error: '' })
+    setFeedback({ message: '', error: '', fieldErrors: {} })
     if (!task) {
       return
     }
@@ -88,6 +89,11 @@ export function TaskUpdatePage({
   }
 
   const updateField = (field: keyof TaskUpdate, value: string) => {
+    setFeedback((current) => {
+      const fieldErrors = { ...current.fieldErrors }
+      delete fieldErrors[field]
+      return { ...current, fieldErrors }
+    })
     setLoadedTask((current) =>
       current.taskId === taskId && current.task
         ? {
@@ -105,7 +111,12 @@ export function TaskUpdatePage({
         一覧に戻る
       </button>
       {task ? (
-        <TaskUpdateForm task={task} onChange={updateField} onSubmit={submit} />
+        <TaskUpdateForm
+          task={task}
+          fieldErrors={feedback.fieldErrors}
+          onChange={updateField}
+          onSubmit={submit}
+        />
       ) : (
         !currentLoad.error && <p>タスクを取得しています。</p>
       )}
@@ -120,23 +131,30 @@ type TaskUpdateFeedbackProps = TaskUpdateFeedbackState
 export function TaskUpdateFeedback({
   message,
   error,
+  fieldErrors,
 }: TaskUpdateFeedbackProps) {
   return (
     <>
       {message && <p role="status">{message}</p>}
       {error && <p role="alert">{error}</p>}
+      {fieldErrors.taskName && (
+        <p id="taskName-error">{fieldErrors.taskName}</p>
+      )}
+      {fieldErrors.dueDate && <p id="dueDate-error">{fieldErrors.dueDate}</p>}
     </>
   )
 }
 
 type TaskUpdateFormProps = {
   task: TaskUpdate
+  fieldErrors: TaskUpdateFeedbackState['fieldErrors']
   onChange: (field: keyof TaskUpdate, value: string) => void
   onSubmit: (event: FormEvent<HTMLFormElement>) => void
 }
 
 export function TaskUpdateForm({
   task,
+  fieldErrors,
   onChange,
   onSubmit,
 }: TaskUpdateFormProps) {
@@ -146,6 +164,8 @@ export function TaskUpdateForm({
         タスク名
         <input
           value={task.taskName}
+          aria-invalid={Boolean(fieldErrors.taskName)}
+          aria-describedby={fieldErrors.taskName ? 'taskName-error' : undefined}
           onChange={(event) => onChange('taskName', event.target.value)}
         />
       </label>
@@ -162,6 +182,8 @@ export function TaskUpdateForm({
         <input
           type="date"
           value={task.dueDate}
+          aria-invalid={Boolean(fieldErrors.dueDate)}
+          aria-describedby={fieldErrors.dueDate ? 'dueDate-error' : undefined}
           onChange={(event) => onChange('dueDate', event.target.value)}
         />
       </label>

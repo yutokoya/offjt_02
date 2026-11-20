@@ -132,6 +132,7 @@ public class TaskService {
 	 */
 	@Transactional
 	public Optional<TaskListResponse.TaskSummary> updateTask(Long taskId, TaskUpdateRequest request) {
+		validateUpdateRequiredFields(request);
 		return taskRepository.findById(taskId)
 				.map(task -> {
 					task.update(
@@ -141,6 +142,19 @@ public class TaskService {
 							LocalDate.parse(request.dueDate()));
 					return toSummary(task);
 				});
+	}
+
+	private void validateUpdateRequiredFields(TaskUpdateRequest request) {
+		Map<String, String> fieldErrors = new LinkedHashMap<>();
+		if (request.taskName() == null || request.taskName().isBlank()) {
+			fieldErrors.put("taskName", "タスク名は必須です。");
+		}
+		if (request.dueDate() == null || request.dueDate().isBlank()) {
+			fieldErrors.put("dueDate", "期限日は必須です。");
+		}
+		if (!fieldErrors.isEmpty()) {
+			throw new TaskValidationException(fieldErrors);
+		}
 	}
 
 	private TaskListResponse.TaskSummary toSummary(TaskEntity task) {
