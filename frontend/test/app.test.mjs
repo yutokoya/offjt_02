@@ -4,6 +4,7 @@ import { createElement } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { createServer } from 'vite'
 
+// 一覧・登録・更新が別画面として描画され、更新画面では取得中表示が出ることを確認する。
 test('the task list and registration form render as separate screens', async () => {
   const vite = await createServer({
     server: { middlewareMode: true, ws: false },
@@ -42,6 +43,7 @@ test('the task list and registration form render as separate screens', async () 
   }
 })
 
+// 取得したタスク名・説明・担当者・期限日が初期値になり、担当者nullは「未割当」と表示することを確認する。
 test('the update form displays the task values returned by the API', async () => {
   const vite = await createServer({
     server: { middlewareMode: true, ws: false },
@@ -86,6 +88,7 @@ test('the update form displays the task values returned by the API', async () =>
   }
 })
 
+// 指定IDでGETし、200の現在値を返すことと、404時に取得エラーとなることを確認する。
 test('fetchTask retrieves the selected task and reports a missing task', async () => {
   const vite = await createServer({
     server: { middlewareMode: true, ws: false },
@@ -123,6 +126,7 @@ test('fetchTask retrieves the selected task and reports a missing task', async (
   }
 })
 
+// 更新APIの200応答で完了メッセージ、失敗応答でエラーのみとなり、成功表示が出ないことを確認する。
 test('task update feedback reports success only when the update API succeeds', async () => {
   const vite = await createServer({
     server: { middlewareMode: true, ws: false },
