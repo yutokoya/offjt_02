@@ -12,6 +12,31 @@ import { confirmTaskDeletion } from './features/tasks/taskDeletion'
 import type { TaskUpdateFeedbackState } from './features/tasks/updateFeedback'
 import './App.css'
 
+type TaskListProps = {
+  tasks: TaskSummary[]
+  onEdit: (task: TaskSummary) => void
+  onDelete: (task: TaskSummary) => void
+}
+
+export function TaskList({ tasks, onEdit, onDelete }: TaskListProps) {
+  return (
+    <ul>
+      {tasks.map((item) => (
+        <li key={item.taskId}>
+          {item.taskName}
+          <p>担当者: {item.assigneeName || '未割当'}</p>
+          <button type="button" onClick={() => onEdit(item)}>
+            編集
+          </button>
+          <button type="button" onClick={() => onDelete(item)}>
+            削除
+          </button>
+        </li>
+      ))}
+    </ul>
+  )
+}
+
 /**
  * タスク一覧、登録画面、更新画面の表示状態を管理する。
  *
@@ -114,24 +139,13 @@ function App() {
           {tasks.length === 0 ? (
             <p>タスクはありません。</p>
           ) : (
-            <ul>
-              {tasks.map((item) => (
-                <li key={item.taskId}>
-                  {item.taskName}
-                  <button
-                    type="button"
-                    onClick={() =>
-                      setScreen({ type: 'update', taskId: item.taskId })
-                    }
-                  >
-                    編集
-                  </button>
-                  <button type="button" onClick={() => void removeTask(item)}>
-                    削除
-                  </button>
-                </li>
-              ))}
-            </ul>
+            <TaskList
+              tasks={tasks}
+              onEdit={(item) =>
+                setScreen({ type: 'update', taskId: item.taskId })
+              }
+              onDelete={(item) => void removeTask(item)}
+            />
           )}
         </section>
       )}

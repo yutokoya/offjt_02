@@ -191,7 +191,46 @@ class TaskControllerTests {
 		mockMvc.perform(get("/api/tasks"))
 				.andExpect(status().isOk())
 				.andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_JSON))
-				.andExpect(jsonPath("$.items[?(@.taskId == " + taskId + ")]").isNotEmpty());
+				.andExpect(jsonPath("$.items[?(@.taskId == " + taskId + ")]").isNotEmpty())
+				.andExpect(jsonPath("$.items[?(@.taskName == '" + taskName
+						+ "')].assigneeName").value(org.hamcrest.Matchers.contains("Participant")));
+	}
+
+	/**
+	 * 担当者を省略またはnullにした登録は未割当として保存し、登録応答と一覧応答で返すことを確認する。
+	 */
+	@Test
+	@Transactional
+	void registeringTaskWithoutAssigneeStoresNullAndReturnsItInResponses() throws Exception {
+		for (boolean includeNullAssignee : new boolean[] {false, true}) {
+			String taskName = "PR-09 unassigned " + UUID.randomUUID();
+			String assigneeProperty = includeNullAssignee ? ",\n  \"assigneeName\": null" : "";
+			MvcResult createdResult = mockMvc.perform(post("/api/tasks")
+							.contentType(MediaType.APPLICATION_JSON)
+							.content("""
+									{
+									  "taskName": "%s",
+									  "description": ""%s,
+									  "dueDate": "2026-11-19"
+									}
+									""".formatted(taskName, assigneeProperty)))
+					.andExpect(status().isCreated())
+					.andExpect(jsonPath("$.assigneeName")
+							.value(org.hamcrest.Matchers.nullValue()))
+					.andReturn();
+			String location = createdResult.getResponse().getHeader("Location");
+			assertThat(location).isNotNull();
+			long taskId = Long.parseLong(location.substring(location.lastIndexOf('/') + 1));
+			TaskEntity savedTask = taskRepository.findById(taskId).orElseThrow();
+			assertThat(savedTask.getAssigneeName()).isNull();
+
+			mockMvc.perform(get("/api/tasks"))
+					.andExpect(status().isOk())
+					.andExpect(jsonPath("$.items[?(@.taskId == " + taskId + ")]").isNotEmpty())
+					.andExpect(jsonPath("$.items[?(@.taskId == " + taskId
+							+ ")].assigneeName").value(org.hamcrest.Matchers.contains(
+									org.hamcrest.Matchers.nullValue())));
+		}
 	}
 
 	/**
